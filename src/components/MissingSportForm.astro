@@ -1,0 +1,290 @@
+---
+// Server-side: Try to get site key for initial render
+// Client-side will fetch from API to ensure we get runtime env vars from Cloudflare
+const serverSideKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || 
+  (import.meta.env.DEV ? '1x00000000000000000000AA' : '');
+---
+
+<form 
+  id="missing-sport-form"
+  method="POST"
+  action="/api/gitlab-missing-sport"
+  class="space-y-6 max-w-2xl mx-auto"
+>
+  <div>
+    <label for="sportName" class="block text-sm font-semibold text-text mb-2">
+      Naam sport <span class="text-red-500">*</span>
+    </label>
+    <input
+      type="text"
+      id="sportName"
+      name="sportName"
+      required
+      class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+    />
+    <p class="text-red-500 text-sm mt-1 hidden" id="sportName-error"></p>
+  </div>
+
+  <div>
+    <label for="organizationName" class="block text-sm font-semibold text-text mb-2">
+      Naam vereniging <span class="text-red-500">*</span>
+    </label>
+    <input
+      type="text"
+      id="organizationName"
+      name="organizationName"
+      required
+      class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+    />
+    <p class="text-red-500 text-sm mt-1 hidden" id="organizationName-error"></p>
+  </div>
+
+  <div>
+    <label for="category" class="block text-sm font-semibold text-text mb-2">
+      Categorie <span class="text-red-500">*</span>
+    </label>
+    <select
+      id="category"
+      name="category"
+      required
+      class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+    >
+      <option value="">Selecteer een categorie</option>
+      <option value="regulier">Regulier</option>
+      <option value="aangepast">Aangepast</option>
+      <option value="beide">Beide</option>
+    </select>
+    <p class="text-red-500 text-sm mt-1 hidden" id="category-error"></p>
+  </div>
+
+  <div>
+    <label for="website" class="block text-sm font-semibold text-text mb-2">
+      Website/URL van de vereniging <span class="text-red-500">*</span>
+    </label>
+    <input
+      type="url"
+      id="website"
+      name="website"
+      required
+      class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+      placeholder="https://..."
+    />
+    <p class="text-red-500 text-sm mt-1 hidden" id="website-error"></p>
+  </div>
+
+  <div>
+    <label for="description" class="block text-sm font-semibold text-text mb-2">
+      Korte omschrijving
+    </label>
+    <textarea
+      id="description"
+      name="description"
+      rows="4"
+      class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+      placeholder="Beschrijf de sport, wat er wordt gedaan, voor wie het geschikt is, etc..."
+    ></textarea>
+    <p class="text-gray-500 text-sm mt-1">Beschrijf bijvoorbeeld wat de sport inhoudt, voor wie het geschikt is, of andere relevante informatie over de sport of vereniging.</p>
+    <p class="text-red-500 text-sm mt-1 hidden" id="description-error"></p>
+  </div>
+
+  <div>
+    <label for="reporterName" class="block text-sm font-semibold text-text mb-2">
+      Jouw naam <span class="text-red-500">*</span>
+    </label>
+    <input
+      type="text"
+      id="reporterName"
+      name="reporterName"
+      required
+      class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+    />
+    <p class="text-red-500 text-sm mt-1 hidden" id="reporterName-error"></p>
+  </div>
+
+  <div>
+    <label for="reporterEmail" class="block text-sm font-semibold text-text mb-2">
+      Jouw e-mail <span class="text-red-500">*</span>
+    </label>
+    <input
+      type="email"
+      id="reporterEmail"
+      name="reporterEmail"
+      required
+      class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+    />
+    <p class="text-red-500 text-sm mt-1 hidden" id="reporterEmail-error"></p>
+  </div>
+
+  <!-- Honeypot -->
+  <div class="sr-only">
+    <label for="company">Company</label>
+    <input type="text" id="company" name="company" tabindex="-1" autocomplete="off" />
+  </div>
+
+  <!-- Turnstile -->
+  <div id="turnstile-container">
+    {serverSideKey && (
+      <div class="cf-turnstile" data-sitekey={serverSideKey}></div>
+    )}
+  </div>
+
+  <button
+    type="submit"
+    class="w-full bg-primary text-white px-6 py-3 rounded-md font-semibold hover:bg-primary/90 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+  >
+    Versturen
+  </button>
+</form>
+
+<script>
+  // Load Turnstile site key from API (to get runtime env vars from Cloudflare)
+  let turnstileSiteKey: string | null = null;
+  
+  // Get initial site key from server-side rendered element if available
+  const initialWidget = document.querySelector('#turnstile-container .cf-turnstile') as HTMLElement;
+  if (initialWidget) {
+    turnstileSiteKey = initialWidget.getAttribute('data-sitekey');
+  }
+  
+  async function loadTurnstileConfig() {
+    try {
+      const response = await fetch('/api/turnstile-config');
+      const data = await response.json();
+      const apiKey = data.siteKey || null;
+      
+      // Only update if we got a key from API and don't have one yet, or if API key is different
+      if (apiKey && (!turnstileSiteKey || turnstileSiteKey !== apiKey)) {
+        turnstileSiteKey = apiKey;
+        const container = document.getElementById('turnstile-container');
+        if (container) {
+          container.innerHTML = `<div class="cf-turnstile" data-sitekey="${turnstileSiteKey}"></div>`;
+        }
+      } else if (!apiKey && !turnstileSiteKey && !import.meta.env.DEV) {
+        const container = document.getElementById('turnstile-container');
+        if (container) {
+          container.innerHTML = '<div class="p-4 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-800">⚠️ Turnstile is niet geconfigureerd. Zet PUBLIC_TURNSTILE_SITE_KEY in je environment variabelen.</div>';
+        }
+      }
+    } catch (error) {
+      console.error('Error loading Turnstile config:', error);
+      // Use test key in development as fallback
+      if (import.meta.env.DEV && !turnstileSiteKey) {
+        turnstileSiteKey = '1x00000000000000000000AA';
+        const container = document.getElementById('turnstile-container');
+        if (container) {
+          container.innerHTML = `<div class="cf-turnstile" data-sitekey="${turnstileSiteKey}"></div>`;
+        }
+      }
+    }
+  }
+  
+  // Load config from API when page loads (to get runtime env vars)
+  loadTurnstileConfig();
+  
+  const form = document.getElementById('missing-sport-form') as HTMLFormElement;
+  
+  if (form) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      // Clear previous errors
+      document.querySelectorAll('[id$="-error"]').forEach((el) => {
+        (el as HTMLElement).classList.add('hidden');
+        (el as HTMLElement).textContent = '';
+      });
+      
+      const formData = new FormData(form);
+      const data = Object.fromEntries(formData);
+      
+      // Honeypot check
+      if (data.company) {
+        return; // Bot detected, silently fail
+      }
+      
+      // Get Turnstile token (only if Turnstile is configured)
+      // Wait for site key to be loaded if not yet available
+      if (!turnstileSiteKey) {
+        await loadTurnstileConfig();
+      }
+      
+      const turnstileWidget = document.querySelector('.cf-turnstile');
+      if (turnstileWidget && turnstileSiteKey) {
+        const turnstileResponse = (window as any).turnstile?.getResponse?.();
+        if (!turnstileResponse) {
+          showError('Gelieve de beveiligingscontrole te voltooien.');
+          return;
+        }
+        // Add Turnstile token to data
+        (data as any).cfTurnstileResponse = turnstileResponse;
+      }
+      
+      // Client-side validation
+      if (!data.sportName || !data.organizationName || !data.category || !data.website || !data.reporterName || !data.reporterEmail) {
+        showError('Er zijn verplichte velden niet ingevuld.');
+        return;
+      }
+      
+      // Validate URL format
+      try {
+        new URL(data.website as string);
+      } catch {
+        showError('website', 'Voer een geldige URL in (bijv. https://voorbeeld.nl)');
+        return;
+      }
+      
+      // Disable submit button
+      const submitBtn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Verzenden...';
+      
+      try {
+        const response = await fetch('/api/gitlab-missing-sport', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data),
+        });
+        
+        const responseData = await response.json();
+        
+        if (response.ok && responseData.success) {
+          // Success - redirect to thank you page
+          window.location.href = '/bedankt';
+          return;
+        } else {
+          // Handle error response
+          if (responseData.field) {
+            showError(responseData.field, responseData.error || responseData.message);
+          } else {
+            showError(responseData.error || 'Er is een fout opgetreden. Probeer het later opnieuw.');
+          }
+          // Reset Turnstile widget on error
+          (window as any).turnstile?.reset?.();
+        }
+      } catch (err) {
+        console.error('Form submission error:', err);
+        showError('Er is een fout opgetreden. Probeer het later opnieuw.');
+        // Reset Turnstile widget on error
+        (window as any).turnstile?.reset?.();
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Versturen';
+      }
+    });
+  }
+  
+  function showError(fieldOrMessage: string, message?: string) {
+    if (message) {
+      const errorEl = document.getElementById(`${fieldOrMessage}-error`);
+      if (errorEl) {
+        errorEl.textContent = message;
+        errorEl.classList.remove('hidden');
+      }
+    } else {
+      // General error
+      alert(fieldOrMessage);
+    }
+  }
+</script>
+

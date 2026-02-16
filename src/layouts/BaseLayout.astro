@@ -1,0 +1,179 @@
+---
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import SEOHead from '../components/SEOHead.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+  image?: string;
+  noindex?: boolean;
+}
+
+const { title, description, image, noindex } = Astro.props;
+const siteUrl = Astro.site || 'https://sporthengelo.nl';
+const fullImage = image ? (image.startsWith('http') ? image : `${siteUrl}${image}`) : `${siteUrl}/og-image.jpg`;
+---
+
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <SEOHead 
+      title={title}
+      description={description}
+      image={fullImage}
+      noindex={noindex}
+    />
+    <slot name="head" />
+  </head>
+  <body class="min-h-screen flex flex-col bg-white text-text">
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-white focus:rounded-md">
+      Spring naar hoofdinhoud
+    </a>
+    <Header />
+    <main id="main-content" class="flex-grow" style="overflow: visible;">
+      <slot />
+    </main>
+    <Footer />
+
+    <!-- Link prefetching op hover voor snellere navigatie -->
+    <script>
+      (function() {
+        // Track welke links al geprefetched zijn
+        const prefetched = new Set();
+        
+        // Functie om een link te prefetchen
+        function prefetchLink(url) {
+          // Skip als al geprefetched of externe link
+          if (prefetched.has(url) || url.startsWith('http') && !url.includes(window.location.hostname)) {
+            return;
+          }
+          
+          // Skip anchors en speciale links
+          if (url.startsWith('#') || url.startsWith('mailto:') || url.startsWith('tel:')) {
+            return;
+          }
+          
+          // Maak absolute URL
+          const absoluteUrl = url.startsWith('/') ? new URL(url, window.location.origin).href : url;
+          
+          // Prefetch de link
+          const link = document.createElement('link');
+          link.rel = 'prefetch';
+          link.as = 'document';
+          link.href = absoluteUrl;
+          document.head.appendChild(link);
+          
+          prefetched.add(url);
+        }
+        
+        // Voeg hover listeners toe aan alle links
+        function setupPrefetch() {
+          const links = document.querySelectorAll('a[href]');
+          
+          links.forEach(link => {
+            const href = link.getAttribute('href');
+            if (!href) return;
+            
+            // Prefetch op hover met kleine delay voor betere UX
+            let hoverTimeout;
+            link.addEventListener('mouseenter', () => {
+              hoverTimeout = setTimeout(() => {
+                prefetchLink(href);
+              }, 100); // 100ms delay om onnodige prefetches te voorkomen
+            });
+            
+            link.addEventListener('mouseleave', () => {
+              if (hoverTimeout) {
+                clearTimeout(hoverTimeout);
+              }
+            });
+            
+            // Prefetch ook op touchstart voor mobiel (zonder delay)
+            link.addEventListener('touchstart', () => {
+              prefetchLink(href);
+            }, { passive: true });
+          });
+        }
+        
+        // Setup bij DOM ready
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', setupPrefetch);
+        } else {
+          setupPrefetch();
+        }
+        
+        // Herhaal voor dynamisch toegevoegde content
+        const observer = new MutationObserver(() => {
+          setupPrefetch();
+        });
+        
+        observer.observe(document.body, {
+          childList: true,
+          subtree: true
+        });
+      })();
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  /* Globale tekstafbreking voor mobiele weergave */
+  * {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+
+  /* Zorg dat lange woorden worden afgebroken */
+  h1, h2, h3, h4, h5, h6,
+  p, span, a, li, td, th,
+  .prose, .prose * {
+    word-break: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+
+  /* Zorg dat containers niet overlopen */
+  .container {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  /* Responsive tekst voor kleine schermen */
+  @media (max-width: 640px) {
+    h1 {
+      font-size: clamp(1.75rem, 8vw, 2.5rem) !important;
+      line-height: 1.2 !important;
+    }
+    
+    h2 {
+      font-size: clamp(1.5rem, 7vw, 2rem) !important;
+      line-height: 1.3 !important;
+    }
+    
+    h3 {
+      font-size: clamp(1.25rem, 6vw, 1.5rem) !important;
+      line-height: 1.4 !important;
+    }
+  }
+</style>
+

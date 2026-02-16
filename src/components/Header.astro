@@ -1,0 +1,204 @@
+---
+import { getPictureSources } from '../utils/images';
+
+const currentPath = Astro.url.pathname;
+const logoPath = '/images/logo.png';
+const logoSources = getPictureSources(logoPath);
+---
+
+<header class="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm">
+  <nav class="container mx-auto px-4">
+    <div class="flex items-center justify-between h-16">
+      <!-- Logo -->
+      <a href="/" class="flex items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity flex-shrink-0">
+        <picture>
+          <source type="image/avif" srcset={logoSources.avif} />
+          <img 
+            src={logoSources.fallback} 
+            alt="Sport Hengelo logo" 
+            class="h-8 sm:h-10 w-auto"
+            loading="eager"
+            fetchpriority="high"
+            decoding="async"
+          />
+        </picture>
+        <span class="text-lg sm:text-2xl font-bold text-primary hidden md:inline">
+          Sport Hengelo
+        </span>
+      </a>
+      
+      <!-- Desktop menu -->
+      <ul class="hidden md:flex items-center gap-6 lg:gap-8 h-full">
+        <li class="h-full flex items-center">
+          <a 
+            href="/" 
+            class={`text-base font-medium transition-colors whitespace-nowrap relative h-full flex items-center px-2 ${
+              currentPath === '/' 
+                ? 'text-primary' 
+                : 'text-text hover:text-primary'
+            }`}
+          >
+            Home
+            {currentPath === '/' ? (
+              <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></span>
+            ) : ''}
+          </a>
+        </li>
+        <li class="h-full flex items-center">
+          <a 
+            href="/sporten" 
+            class={`text-base font-medium transition-colors whitespace-nowrap relative h-full flex items-center px-2 ${
+              currentPath === '/sporten' || currentPath.startsWith('/sport/')
+                ? 'text-primary' 
+                : 'text-text hover:text-primary'
+            }`}
+          >
+            Reguliere sporten
+            {(currentPath === '/sporten' || currentPath.startsWith('/sport/')) ? (
+              <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></span>
+            ) : ''}
+          </a>
+        </li>
+        <li class="h-full flex items-center">
+          <a 
+            href="/aangepaste-sporten" 
+            class={`text-base font-medium transition-colors whitespace-nowrap relative h-full flex items-center px-2 ${
+              currentPath === '/aangepaste-sporten'
+                ? 'text-primary' 
+                : 'text-text hover:text-primary'
+            }`}
+          >
+            Aangepaste sporten
+            {currentPath === '/aangepaste-sporten' ? (
+              <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></span>
+            ) : ''}
+          </a>
+        </li>
+        <li class="h-full flex items-center">
+          <a 
+            href="/over" 
+            class={`text-base font-medium transition-colors whitespace-nowrap relative h-full flex items-center px-2 ${
+              currentPath === '/over'
+                ? 'text-primary' 
+                : 'text-text hover:text-primary'
+            }`}
+          >
+            Over
+            {currentPath === '/over' ? (
+              <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></span>
+            ) : ''}
+          </a>
+        </li>
+      </ul>
+
+      <!-- Hamburger button voor mobiel -->
+      <button
+        id="mobile-menu-button"
+        class="md:hidden p-2 text-text hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg"
+        aria-label="Menu openen"
+        aria-expanded="false"
+      >
+        <svg id="menu-icon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+        </svg>
+        <svg id="close-icon" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Mobiel menu (verborgen standaard) -->
+    <div id="mobile-menu" class="hidden md:hidden mt-4 pb-4 border-t border-gray-200">
+      <ul class="flex flex-col gap-1 pt-4">
+        <li>
+          <a 
+            href="/" 
+            class={`block py-3 px-2 rounded-lg transition-colors font-medium ${
+              currentPath === '/' 
+                ? 'text-primary bg-primary/10' 
+                : 'text-text hover:text-primary hover:bg-gray-50'
+            }`}
+          >
+            Home
+          </a>
+        </li>
+        <li>
+          <a 
+            href="/sporten" 
+            class={`block py-3 px-2 rounded-lg transition-colors font-medium ${
+              currentPath === '/sporten' || currentPath.startsWith('/sport/')
+                ? 'text-primary bg-primary/10' 
+                : 'text-text hover:text-primary hover:bg-gray-50'
+            }`}
+          >
+            Reguliere sporten
+          </a>
+        </li>
+        <li>
+          <a 
+            href="/aangepaste-sporten" 
+            class={`block py-3 px-2 rounded-lg transition-colors font-medium ${
+              currentPath === '/aangepaste-sporten'
+                ? 'text-primary bg-primary/10' 
+                : 'text-text hover:text-primary hover:bg-gray-50'
+            }`}
+          >
+            Aangepaste sporten
+          </a>
+        </li>
+        <li>
+          <a 
+            href="/over" 
+            class={`block py-3 px-2 rounded-lg transition-colors font-medium ${
+              currentPath === '/over'
+                ? 'text-primary bg-primary/10' 
+                : 'text-text hover:text-primary hover:bg-gray-50'
+            }`}
+          >
+            Over
+          </a>
+        </li>
+      </ul>
+    </div>
+  </nav>
+</header>
+
+<script>
+  const menuButton = document.getElementById('mobile-menu-button');
+  const mobileMenu = document.getElementById('mobile-menu');
+  const menuIcon = document.getElementById('menu-icon');
+  const closeIcon = document.getElementById('close-icon');
+  
+  if (menuButton && mobileMenu && menuIcon && closeIcon) {
+    menuButton.addEventListener('click', () => {
+      const isOpen = !mobileMenu.classList.contains('hidden');
+      
+      if (isOpen) {
+        mobileMenu.classList.add('hidden');
+        menuIcon.classList.remove('hidden');
+        closeIcon.classList.add('hidden');
+        menuButton.setAttribute('aria-expanded', 'false');
+        menuButton.setAttribute('aria-label', 'Menu openen');
+      } else {
+        mobileMenu.classList.remove('hidden');
+        menuIcon.classList.add('hidden');
+        closeIcon.classList.remove('hidden');
+        menuButton.setAttribute('aria-expanded', 'true');
+        menuButton.setAttribute('aria-label', 'Menu sluiten');
+      }
+    });
+
+    // Sluit menu bij klik op link
+    const menuLinks = mobileMenu.querySelectorAll('a');
+    menuLinks.forEach(link => {
+      link.addEventListener('click', () => {
+        mobileMenu.classList.add('hidden');
+        menuIcon.classList.remove('hidden');
+        closeIcon.classList.add('hidden');
+        menuButton.setAttribute('aria-expanded', 'false');
+        menuButton.setAttribute('aria-label', 'Menu openen');
+      });
+    });
+  }
+</script>
+

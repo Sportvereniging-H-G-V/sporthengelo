@@ -1,0 +1,50 @@
+---
+export const prerender = true;
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import CardGrid from '../../components/CardGrid.astro';
+import { readdir, readFile } from 'fs/promises';
+import { join } from 'path';
+import matter from 'gray-matter';
+
+const sportsDir = join(process.cwd(), 'content', 'sports');
+const files = (await readdir(sportsDir)).filter(f => f.endsWith('.md'));
+
+const sports = await Promise.all(
+  files.map(async (file) => {
+    const content = await readFile(join(sportsDir, file), 'utf-8');
+    const { data } = matter(content);
+    return {
+      id: file.replace('.md', ''),
+      slug: data.slug || file.replace('.md', ''),
+      data: {
+        title: data.title,
+        image: data.image,
+        summary: data.summary,
+        body: '',
+        external_url: data.external_url,
+        category: 'regulier',
+      },
+      category: 'regulier' as const,
+    };
+  })
+);
+
+const sorted = sports.sort((a, b) => a.data.title.localeCompare(b.data.title, 'nl'));
+---
+
+<BaseLayout 
+  title="Reguliere sporten"
+  description="Overzicht van alle reguliere sporten in Hengelo. Vind de perfecte sport voor jou."
+>
+  <section class="py-12 bg-gradient-to-br from-primary to-secondary text-white">
+    <div class="container mx-auto px-4">
+      <h1 class="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 break-words">Reguliere sporten</h1>
+      <p class="text-lg sm:text-xl text-white/90 break-words">
+        Kies een sport die bij u past. Op elke sportpagina vindt u informatie over de sport en een overzicht van alle aanbieders en verenigingen in Hengelo.
+      </p>
+    </div>
+  </section>
+
+  <CardGrid sports={sorted} />
+</BaseLayout>

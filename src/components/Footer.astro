@@ -1,0 +1,81 @@
+---
+import siteConfig from '../../content/site.json';
+
+const { contact_email, contact_phone, socials } = siteConfig;
+---
+
+<footer class="bg-primary text-white mt-auto">
+  <div class="container mx-auto px-4 py-8 sm:py-12">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-12 max-w-6xl mx-auto">
+      <div>
+        <h3 class="text-lg sm:text-xl font-bold mb-3 sm:mb-4 break-words">Sport Hengelo</h3>
+        <p class="text-sm sm:text-base text-white/90 mb-4 break-words">
+          Alle sporten in Hengelo op één plek. Ontdek reguliere en aangepaste sporten.
+        </p>
+        <div class="mt-4">
+          <a href={`mailto:${contact_email}`} class="text-sm sm:text-base text-white/90 hover:text-white transition-colors break-all">
+            {contact_email}
+          </a>
+        </div>
+      </div>
+      <div>
+        <h3 class="text-lg sm:text-xl font-bold mb-3 sm:mb-4 break-words">Navigatie</h3>
+        <ul class="space-y-2 text-sm sm:text-base text-white/90">
+          <li>
+            <a href="/" class="hover:text-white transition-colors break-words">Home</a>
+          </li>
+          <li>
+            <a href="/sporten" class="hover:text-white transition-colors break-words">Reguliere sporten</a>
+          </li>
+          <li>
+            <a href="/aangepaste-sporten" class="hover:text-white transition-colors break-words">Aangepaste sporten</a>
+          </li>
+          <li>
+            <a href="/over" class="hover:text-white transition-colors break-words">Over</a>
+          </li>
+          <li>
+            <a href="/veelgestelde-vragen" class="hover:text-white transition-colors break-words">Veelgestelde vragen</a>
+          </li>
+        </ul>
+        {socials && socials.length > 0 && (
+          <div class="mt-6">
+            <h3 class="text-lg sm:text-xl font-bold mb-3 sm:mb-4 break-words">Volg ons</h3>
+            <ul class="space-y-2 text-sm sm:text-base">
+              {socials.map((social) => (
+                <li>
+                  <a 
+                    href={social.href} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    class="text-white/90 hover:text-white transition-colors break-words"
+                  >
+                    {social.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+      <div>
+        <h3 class="text-lg sm:text-xl font-bold mb-3 sm:mb-4 break-words">Sport/vereniging ontbreekt?</h3>
+        <p class="text-sm sm:text-base text-white/90 mb-4 break-words">
+          Ken je een sport of vereniging die nog niet op deze site staat? Laat het ons weten!
+        </p>
+        <a 
+          href="/ontbrekende-sport"
+          class="inline-block bg-white text-primary px-4 sm:px-6 py-2 sm:py-3 rounded-md text-sm sm:text-base font-semibold hover:bg-white/90 transition-colors break-words"
+        >
+          Meld een ontbrekende sport
+        </a>
+      </div>
+    </div>
+    <div class="mt-6 sm:mt-8 pt-6 sm:pt-8 border-t border-white/20 text-center text-white/70 text-xs sm:text-sm break-words">
+      <p>&copy; {new Date().getFullYear()} Sport Hengelo. Alle rechten voorbehouden.</p>
+    </div>
+  </div>
+</footer>
+
+
+
+

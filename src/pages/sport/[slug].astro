@@ -1,0 +1,557 @@
+---
+export const prerender = true;
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Prose from '../../components/Prose.astro';
+import { getPictureSources } from '../../utils/images';
+import { readdir, readFile } from 'fs/promises';
+import { join } from 'path';
+import matter from 'gray-matter';
+import MarkdownIt from 'markdown-it';
+
+const md = new MarkdownIt({
+  html: true,
+  linkify: true,
+  typographer: true,
+});
+
+export async function getStaticPaths() {
+  const sportsDir = join(process.cwd(), 'content', 'sports');
+  const adaptiveDir = join(process.cwd(), 'content', 'adaptive');
+  
+  const sportsFiles = (await readdir(sportsDir)).filter(f => f.endsWith('.md'));
+  const adaptiveFiles = (await readdir(adaptiveDir)).filter(f => f.endsWith('.md'));
+  
+  const allFiles = [
+    ...sportsFiles.map(f => ({ file: f, dir: sportsDir })),
+    ...adaptiveFiles.map(f => ({ file: f, dir: adaptiveDir })),
+  ];
+  
+  const paths = await Promise.all(
+    allFiles.map(async ({ file, dir }) => {
+      const content = await readFile(join(dir, file), 'utf-8');
+      const { data } = matter(content);
+      return {
+        params: { slug: data.slug || file.replace('.md', '') },
+        props: { file, dir },
+      };
+    })
+  );
+  
+  return paths;
+}
+
+const { file, dir } = Astro.props;
+const content = await readFile(join(dir, file), 'utf-8');
+const { data, content: body } = matter(content);
+
+// Verwijder de eerste H1 (sportnaam) omdat die al in de hero staat
+let cleanedBody = body.replace(/^#\s+.*$/m, '').trim();
+
+// Extraheer de introductietekst (eerste paragraaf na H1, tot aan de eerste H2)
+let introText = '';
+// Zoek naar alles tot aan de eerste ## of ### heading
+const headingMatch = cleanedBody.match(/([\s\S]*?)(\n##|\n###|$)/);
+if (headingMatch && headingMatch[1]) {
+  introText = headingMatch[1].trim();
+  // Verwijder lege regels aan het begin en einde
+  introText = introText.replace(/^\s*\n+|\n+\s*$/g, '').trim();
+  
+  // Verwijder de introductietekst uit de body alleen als het niet leeg is
+  if (introText) {
+    // Vervang de introductietekst met een lege string
+    const introPattern = introText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    cleanedBody = cleanedBody.replace(new RegExp(`^${introPattern}\\s*\\n*`, 'm'), '').trim();
+  }
+}
+
+// Functie om HGV varianten te normaliseren naar "sportvereniging H.G.V."
+function normalizeHGVName(name: string, url?: string): string {
+  if (!name) return name;
+  
+  const nameLower = name.toLowerCase().trim();
+  const normalizedName = "sportvereniging H.G.V.";
+  
+  // Check of het een HGV variant is (naam of URL)
+  // Normaliseer eerst de naam: verwijder "sportvereniging" prefix en check dan
+  const nameWithoutPrefix = nameLower.replace(/^sportvereniging\s+/, '').trim();
+  const isHGV = 
+    nameLower.includes('hgv') ||
+    nameLower === 'h.g.v.' ||
+    nameWithoutPrefix === 'h.g.v.' ||
+    nameWithoutPrefix === 'hgv' ||
+    nameLower.includes('sportvereniging h.g.v.') ||
+    nameLower.includes('sportvereniging hgv') ||
+    (url && (url.includes('hgvhengelo.nl') || url.includes('hgv-hengelo')));
+  
+  if (isHGV) {
+    return normalizedName;
+  }
+  
+  return name;
+}
+
+// Functie om duplicaten te verwijderen (vooral HGV varianten)
+function deduplicateProviders(providers: Array<{ name: string; url?: string }>): Array<{ name: string; url?: string }> {
+  const normalized = providers.map(p => ({
+    name: normalizeHGVName(p.name, p.url),
+    url: p.url
+  }));
+  
+  // Verwijder duplicaten - behoud degene met URL als beide bestaan
+  const seen = new Map<string, { name: string; url?: string }>();
+  
+  for (const provider of normalized) {
+    const key = provider.name.toLowerCase();
+    const existing = seen.get(key);
+    
+    if (!existing) {
+      seen.set(key, provider);
+    } else if (provider.url && !existing.url) {
+      // Vervang als nieuwe provider URL heeft en bestaande niet
+      seen.set(key, provider);
+    } else if (provider.url && existing.url && provider.url !== existing.url) {
+      // Als beide URL's hebben, behoud degene met de langste/meest specifieke URL
+      if (provider.url.length > existing.url.length) {
+        seen.set(key, provider);
+      }
+    }
+  }
+  
+  return Array.from(seen.values());
+}
+
+// Parse aanbieders - eerst uit frontmatter, dan uit body
+let providers: Array<{ name: string; url?: string }> = [];
+
+// 1. Eerst kijken naar organizations in frontmatter
+if (data.organizations && Array.isArray(data.organizations)) {
+  providers = data.organizations.map((org: any) => ({
+    name: typeof org === 'string' ? org : org.name || '',
+    url: typeof org === 'object' ? org.url : undefined,
+  })).filter((p: any) => p.name);
+}
+
+// 2. Als er geen organizations in frontmatter zijn, parse uit body
+if (providers.length === 0) {
+  // Zoek naar "Waar moet je zijn?" of "Waar kun je X doen?" sectie (kan H2 of H3 zijn)
+  const waarSectionMatch = cleanedBody.match(/#{2,3}\s+Waar (?:moet je zijn|kun je .+? doen)\?\s*\n\n?(.*?)(?=\n##|\n###|$)/s);
+  
+  if (waarSectionMatch) {
+    const waarContent = waarSectionMatch[1];
+    
+    // Zoek naar alle markdown links: [tekst](url) of **naam** - [link](url)
+    const linkMatches = Array.from(waarContent.matchAll(/(?:\*\*([^*]+)\*\*\s*-\s*)?\[([^\]]+)\]\(([^)]+)\)/g));
+    
+    if (linkMatches.length > 0) {
+      // Als er links zijn, gebruik die
+      for (const match of linkMatches) {
+        const name = match[1]?.trim() || match[2]?.trim() || '';
+        const url = match[3]?.trim() || '';
+        if (name) {
+          providers.push({ name, url: url || undefined });
+        }
+      }
+    } else {
+      // Als er geen links zijn, zoek naar tekst na "De aanbieder van X is" of "aanbieders zijn"
+      const aanbiederMatch = waarContent.match(/(?:De aanbieder|aanbieders|verenigingen).*?is\s+(.+?)(?:\.|$)/is);
+      if (aanbiederMatch) {
+        const aanbiederText = aanbiederMatch[1].trim();
+        // Splits op komma's of "en" voor meerdere aanbieders
+        const aanbieders = aanbiederText.split(/(?:,\s*| en )/).map(a => a.trim()).filter(a => a);
+        aanbieders.forEach(name => providers.push({ name }));
+      }
+    }
+  }
+}
+
+// 3. Als laatste fallback, gebruik external_url als er geen providers zijn
+if (providers.length === 0 && data.external_url) {
+  // Probeer verenigingsnaam uit URL te halen of gebruik generieke naam
+  const urlObj = new URL(data.external_url);
+  const domain = urlObj.hostname.replace('www.', '');
+  const domainName = domain.split('.')[0] || 'Website';
+  providers.push({ 
+    name: normalizeHGVName(domainName, data.external_url), 
+    url: data.external_url 
+  });
+}
+
+// Normaliseer en verwijder duplicaten
+providers = deduplicateProviders(providers);
+
+// Converteer H3 "Waar moet je zijn?" naar H2
+cleanedBody = cleanedBody.replace(/^###\s+Waar moet je zijn\?/m, '## Waar moet je zijn?');
+
+// Verwijder duplicaat "Waar kun je X doen?" sectie uit body als we providers hebben
+// Dit voorkomt dat de sectie zowel in de sidebar als in de body verschijnt
+if (providers.length > 0) {
+  cleanedBody = cleanedBody.replace(/##\s+Waar kun je .+? doen\?[\s\S]*?(?=\n##|\n###|$)/g, '');
+}
+
+// Extraheer praktische informatie voor sidebar
+let praktischeInfo: Array<{ label: string; value: string }> = [];
+const praktischeInfoMatch = cleanedBody.match(/##\s+Praktische informatie\s*\n\n?([\s\S]*?)(?=\n##|\n###|$)/);
+if (praktischeInfoMatch) {
+  const infoContent = praktischeInfoMatch[1];
+  // Parse bullet points met **label:** value format
+  const infoLines = infoContent.split('\n').filter(line => line.trim().startsWith('-'));
+  infoLines.forEach(line => {
+    const match = line.match(/\*\*([^*]+)\*\*:\s*(.+)/);
+    if (match) {
+      praktischeInfo.push({ label: match[1].trim(), value: match[2].trim() });
+    }
+  });
+  // Verwijder praktische informatie sectie uit body
+  cleanedBody = cleanedBody.replace(/##\s+Praktische informatie\s*\n\n?[\s\S]*?(?=\n##|\n###|$)/g, '').trim();
+}
+
+// Extraheer "Voor wie is X geschikt?" informatie
+let geschiktVoor: { leeftijd?: string; niveau?: string; doel?: string } = {};
+const geschiktMatch = cleanedBody.match(/##\s+Voor wie is .+? geschikt\?[\s\S]*?(?=\n##|\n###|$)/);
+if (geschiktMatch) {
+  const geschiktContent = geschiktMatch[0];
+  const leeftijdMatch = geschiktContent.match(/\*\*Leeftijd:\*\*\s*(.+)/);
+  const niveauMatch = geschiktContent.match(/\*\*Niveau:\*\*\s*(.+)/);
+  const doelMatch = geschiktContent.match(/\*\*Doel:\*\*\s*(.+)/);
+  if (leeftijdMatch) geschiktVoor.leeftijd = leeftijdMatch[1].trim();
+  if (niveauMatch) geschiktVoor.niveau = niveauMatch[1].trim();
+  if (doelMatch) geschiktVoor.doel = doelMatch[1].trim();
+  
+  // Verwijder "Voor wie is X geschikt?" sectie uit body als we de info hebben geëxtraheerd
+  if (geschiktVoor.leeftijd || geschiktVoor.niveau || geschiktVoor.doel) {
+    cleanedBody = cleanedBody.replace(/##\s+Voor wie is .+? geschikt\?[\s\S]*?(?=\n##|\n###|$)/g, '').trim();
+  }
+}
+
+const htmlBody = md.render(cleanedBody);
+
+const siteUrl = Astro.site || 'https://sporthengelo.nl';
+const pageUrl = new URL(`/sport/${data.slug}`, siteUrl).href;
+const sportDescription = data.summary || `Informatie over ${data.title} in Hengelo. Vind verenigingen en aanbieders.`;
+---
+
+<BaseLayout
+  title={data.title}
+  description={sportDescription}
+  image={data.image}
+>
+  <!-- Structured Data for Sport Page -->
+  <script type="application/ld+json" set:html={JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": data.title,
+    "description": sportDescription,
+    "image": data.image ? (data.image.startsWith('http') ? data.image : new URL(data.image, siteUrl).href) : undefined,
+    "url": pageUrl,
+    "datePublished": new Date().toISOString(),
+    "dateModified": new Date().toISOString(),
+    "author": {
+      "@type": "Organization",
+      "name": "Sport Hengelo"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Sport Hengelo",
+      "url": siteUrl
+    },
+    "inLanguage": "nl-NL",
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": pageUrl
+    }
+  })} />
+
+  <!-- Hero sectie met sportnaam -->
+  {data.image && (() => {
+    const pictureSources = getPictureSources(data.image);
+    const hasSummary = data.summary && data.summary.trim() && data.summary.toLowerCase() !== data.title.toLowerCase();
+    return (
+      <section class="relative bg-gradient-to-br from-primary to-secondary text-white py-12 md:py-16 lg:py-20 overflow-hidden">
+        <div class="absolute inset-0">
+          <picture>
+            <source type="image/avif" srcset={pictureSources.avif} />
+            <img 
+              src={pictureSources.fallback} 
+              alt="" 
+              class="w-full h-full object-cover opacity-15"
+              loading="eager"
+              fetchpriority="high"
+              decoding="async"
+            />
+          </picture>
+          <div class="absolute inset-0 bg-gradient-to-br from-primary/90 to-secondary/90"></div>
+        </div>
+        <div class="container mx-auto px-4 relative z-10">
+          <div class="max-w-4xl mx-auto py-4 text-center">
+            <h1 class="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-4 break-words">
+              {data.title}
+            </h1>
+            {introText && (
+              <p class="text-lg md:text-xl text-white/90 max-w-3xl mx-auto leading-relaxed break-words">
+                {introText}
+              </p>
+            )}
+            {!introText && hasSummary && (
+              <p class="text-lg md:text-xl text-white/90 max-w-2xl mx-auto break-words">
+                {data.summary}
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+    );
+  })()}
+
+  {!data.image && (() => {
+    const hasSummary = data.summary && data.summary.trim() && data.summary.toLowerCase() !== data.title.toLowerCase();
+    return (
+      <section class="bg-gradient-to-br from-primary to-secondary text-white py-10 md:py-14">
+        <div class="container mx-auto px-4 text-center">
+          <h1 class="text-4xl sm:text-5xl md:text-6xl font-bold mb-4 break-words">
+            {data.title}
+          </h1>
+          {introText && (
+            <p class="text-lg md:text-xl text-white/90 max-w-3xl mx-auto leading-relaxed break-words">
+              {introText}
+            </p>
+          )}
+          {!introText && hasSummary && (
+            <p class="text-lg md:text-xl text-white/90 max-w-2xl mx-auto break-words">
+              {data.summary}
+            </p>
+          )}
+        </div>
+      </section>
+    );
+  })()}
+
+  <!-- Hoofdcontent -->
+  <section class="pt-6 md:pt-8 lg:pt-10 pb-8 md:pb-12 lg:pb-16 bg-white">
+    <div class="container mx-auto px-4">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
+        <!-- Hoofdcontent (2/3 op desktop) -->
+        <div class="lg:col-span-2">
+          <div class="prose prose-lg max-w-3xl sport-content">
+            <Prose content={htmlBody} />
+          </div>
+        </div>
+
+        <!-- Sidebar (1/3 op desktop) -->
+        <aside class="lg:col-span-1">
+          <div class="sticky top-24 space-y-6">
+            <!-- Afbeelding card -->
+            {data.image && (() => {
+              const pictureSources = getPictureSources(data.image);
+              return (
+                <div class="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
+                  <div class="aspect-[4/3] w-full overflow-hidden">
+                    <picture>
+                      <source type="image/avif" srcset={pictureSources.avif} />
+                      <img
+                        src={pictureSources.fallback}
+                        alt={data.title}
+                        class="w-full h-full object-cover"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    </picture>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <!-- Providers card -->
+            {providers.length > 0 && (
+              <div class="bg-gradient-to-br from-primary/5 to-secondary/5 rounded-xl p-6 border border-primary/20 shadow-md">
+                <h2 class="text-xl font-bold text-text mb-4 flex items-center gap-2">
+                  <span class="text-2xl">🏢</span>
+                  Waar kun je {data.title} beoefenen?
+                </h2>
+                <div class="space-y-3">
+                  {providers.map((provider) => (
+                    provider.url && provider.url.trim() ? (
+                      <a
+                        href={provider.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="block bg-white hover:bg-primary hover:text-white text-primary border-2 border-primary rounded-lg px-4 py-3 font-semibold transition-all duration-200 shadow-sm hover:shadow-md group"
+                      >
+                        <span class="flex items-center justify-between">
+                          <span class="break-words">{provider.name}</span>
+                          <span class="ml-2 group-hover:translate-x-1 transition-transform">→</span>
+                        </span>
+                      </a>
+                    ) : (
+                      <div class="block bg-white text-text border-2 border-gray-300 rounded-lg px-4 py-3 font-semibold">
+                        <span class="break-words">{provider.name}</span>
+                      </div>
+                    )
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <!-- Quick facts card -->
+            {(geschiktVoor.leeftijd || geschiktVoor.niveau || geschiktVoor.doel) && (
+              <div class="bg-gradient-to-br from-secondary/5 to-primary/5 rounded-xl p-6 border border-secondary/20 shadow-md">
+                <h3 class="text-lg font-bold text-text mb-4 flex items-center gap-2">
+                  <span class="text-xl">ℹ️</span>
+                  Quick facts
+                </h3>
+                <div class="space-y-3">
+                  {geschiktVoor.leeftijd && (
+                    <div class="flex items-start gap-3">
+                      <span class="text-lg">👶</span>
+                      <div>
+                        <div class="text-xs font-semibold text-text-light uppercase tracking-wide">Leeftijd</div>
+                        <div class="text-sm font-medium text-text">{geschiktVoor.leeftijd}</div>
+                      </div>
+                    </div>
+                  )}
+                  {geschiktVoor.niveau && (
+                    <div class="flex items-start gap-3">
+                      <span class="text-lg">📊</span>
+                      <div>
+                        <div class="text-xs font-semibold text-text-light uppercase tracking-wide">Niveau</div>
+                        <div class="text-sm font-medium text-text">{geschiktVoor.niveau}</div>
+                      </div>
+                    </div>
+                  )}
+                  {geschiktVoor.doel && (
+                    <div class="flex items-start gap-3">
+                      <span class="text-lg">🎯</span>
+                      <div>
+                        <div class="text-xs font-semibold text-text-light uppercase tracking-wide">Doel</div>
+                        <div class="text-sm font-medium text-text">{geschiktVoor.doel}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <!-- Praktische informatie card -->
+            {praktischeInfo.length > 0 && (
+              <div class="bg-white rounded-xl p-6 border border-gray-200 shadow-md">
+                <h3 class="text-lg font-bold text-text mb-4 flex items-center gap-2">
+                  <span class="text-xl">📋</span>
+                  Praktische informatie
+                </h3>
+                <div class="space-y-3">
+                  {praktischeInfo.map((info) => (
+                    <div class="border-b border-gray-100 pb-3 last:border-0 last:pb-0">
+                      <div class="text-xs font-semibold text-text-light uppercase tracking-wide mb-1">
+                        {info.label}
+                      </div>
+                      <div class="text-sm text-text">
+                        {info.value}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <!-- Categorie badge -->
+            <div class="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+              <div class="flex items-center gap-2 text-sm text-text-light">
+                <span class="text-lg">🏷️</span>
+                <span class="font-medium">Categorie:</span>
+                <span class="bg-primary/10 text-primary px-3 py-1 rounded-full font-semibold">
+                  {data.category === 'aangepast' ? 'Aangepaste sport' : 'Reguliere sport'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <!-- Call to action sectie -->
+  <section class="py-12 md:py-16 bg-gradient-to-br from-primary/5 to-secondary/5">
+    <div class="container mx-auto px-4">
+      <div class="max-w-4xl mx-auto text-center">
+        <h2 class="text-3xl md:text-4xl font-bold text-text mb-4 break-words">
+          Interesse in {data.title}?
+        </h2>
+        <p class="text-lg text-text-light mb-8 max-w-2xl mx-auto break-words">
+          Neem contact op met een van de aanbieders hierboven om meer te weten te komen over {data.title.toLowerCase()} in Hengelo.
+        </p>
+        <div class="flex flex-wrap justify-center gap-4">
+          <a
+            href={data.category === 'aangepast' ? '/aangepaste-sporten' : '/sporten'}
+            class="inline-block bg-white text-primary border-2 border-primary px-8 py-4 rounded-lg text-lg font-semibold hover:bg-primary/5 transition-colors shadow-md hover:shadow-lg"
+          >
+            Bekijk alle {data.category === 'aangepast' ? 'aangepaste' : 'reguliere'} sporten
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style is:global>
+  .sport-content {
+    max-width: none !important;
+  }
+
+  .sport-content h3,
+  .sport-content .prose h3,
+  .sport-content div h3,
+  section .prose h3 {
+    font-size: clamp(1.4rem, 2.5vw, 1.8rem) !important;
+    margin-top: 2.5em !important;
+    margin-bottom: 1em !important;
+    font-weight: 700 !important;
+    color: #1f2937 !important;
+    border-left: 5px solid #2a6f97 !important;
+    padding-left: 1em !important;
+    padding-top: 0.5em !important;
+    padding-bottom: 0.5em !important;
+    background-color: #f0f7fa !important;
+    border-radius: 0 0.375rem 0.375rem 0 !important;
+    padding-right: 1em !important;
+  }
+  
+  .sport-content h2,
+  .sport-content .prose h2,
+  .sport-content div h2,
+  section .prose h2 {
+    font-size: clamp(1.9rem, 3.2vw, 2.5rem) !important;
+    margin-top: 2.5em !important;
+    margin-bottom: 1.25em !important;
+    border-bottom: 3px solid #2a6f97 !important;
+    padding-bottom: 0.75em !important;
+    color: #1f2937 !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.02em !important;
+  }
+
+  /* Verminder margin-top voor de eerste H2 */
+  .sport-content h2:first-of-type,
+  .sport-content .prose h2:first-of-type,
+  .sport-content > div > h2:first-of-type {
+    margin-top: 0.5em !important;
+  }
+
+  .sport-content p {
+    margin-bottom: 1.5em !important;
+    line-height: 1.75 !important;
+  }
+
+  .sport-content ul,
+  .sport-content ol {
+    margin: 1.5em 0 !important;
+  }
+
+  .sport-content li {
+    margin: 0.75em 0 !important;
+  }
+
+  .sport-content strong {
+    color: #2a6f97 !important;
+    font-weight: 600 !important;
+  }
+</style>

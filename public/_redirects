@@ -1,0 +1,6 @@
+# Redirects
+/admin/*  /admin/index.html  200
+
+# 404 fallback
+/*  /404.html  404
+

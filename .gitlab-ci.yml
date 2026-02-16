@@ -1,0 +1,411 @@
+image: node:24
+
+stages: [test, build, review, deploy]
+
+variables:
+  # Cloudflare
+  # CF_PAGES_PROJECT moet worden ingesteld als CI/CD variabele in GitLab
+  # Zet deze in: Project Settings → CI/CD → Variables (bijv. "sporthengelo")
+  # CLOUDFLARE_API_TOKEN en CLOUDFLARE_ACCOUNT_ID moeten ook worden ingesteld als CI/CD variabelen
+  CF_PAGES_BUILD_DIR: "dist"
+  # Node/npm
+  NPM_CONFIG_FUND: "false"
+  NPM_CONFIG_AUDIT: "false"
+
+cache:
+  key:
+    files:
+      - package-lock.json
+  paths:
+    - node_modules/
+  policy: pull-push
+
+# ---------------- TESTS ----------------
+
+test:
+  stage: test
+  script:
+    - node -v && npm -v
+    - npm ci
+    - npm test || echo "No test script found, skipping tests"
+  artifacts:
+    when: always
+    paths:
+      - reports/
+      - coverage/
+    expire_in: 1 day
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+  allow_failure: true
+
+lint:
+  stage: test
+  script:
+    - node -v && npm -v
+    - npm ci
+    - npm run lint || echo "No lint script found, skipping lint check"
+  allow_failure: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+
+typecheck:
+  stage: test
+  script:
+    - node -v && npm -v
+    - npm ci
+    - npm run typecheck || npx astro check || echo "Type checking skipped - no typecheck script available"
+  allow_failure: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+
+# ---------------- SECURITY SCANS ----------------
+
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
+  - template: Security/Dependency-Scanning.gitlab-ci.yml
+  - template: Jobs/Code-Quality.gitlab-ci.yml
+
+# Override alleen voor Code Quality: run op runners met tag 'build'
+code_quality:
+  tags:
+    - privileged
+  allow_failure: true
+  rules:
+    # Alleen draaien bij push naar branches, niet bij merge requests
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+      when: on_success
+    - when: never
+
+.default_script:
+  before_script:
+    - node -v && npm -v
+    - |
+      # Probeer npm ci, als het faalt door corrupte cache, gebruik npm install
+      if ! npm ci; then
+        echo "⚠️ npm ci failed, clearing cache and trying npm install..."
+        rm -rf node_modules
+        npm install --no-audit --no-fund
+      fi
+    - |
+      # Verifieer dat astro geïnstalleerd is
+      if ! command -v astro &> /dev/null && [ ! -f node_modules/.bin/astro ]; then
+        echo "❌ Astro not found, reinstalling..."
+        npm install astro --no-save
+      fi
+    - npm run build
+    - npm i -g wrangler
+
+build:
+  stage: build
+  needs: 
+    - job: test
+      optional: true
+    - job: lint
+      optional: true
+    - job: typecheck
+      optional: true
+  extends: .default_script
+  script:
+    - echo "Build done → artifact in ${CF_PAGES_BUILD_DIR}"
+    - ls -la ${CF_PAGES_BUILD_DIR} | head -10
+  artifacts:
+    paths:
+      - ${CF_PAGES_BUILD_DIR}
+    expire_in: 1 day
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+
+review:
+  stage: review
+  needs: ["build"]
+  before_script:
+    - node -v && npm -v
+    - npm i -g wrangler
+    # Verifieer dat vereiste Cloudflare variabelen zijn ingesteld
+    - |
+      if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+        echo "❌ Error: CLOUDFLARE_API_TOKEN is niet ingesteld als CI/CD variabele"
+        echo "Zet deze in: Project Settings → CI/CD → Variables"
+        exit 1
+      fi
+      if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+        echo "❌ Error: CLOUDFLARE_ACCOUNT_ID is niet ingesteld als CI/CD variabele"
+        echo "Zet deze in: Project Settings → CI/CD → Variables"
+        echo "Je vindt je Account ID in het Cloudflare Dashboard rechtsonder op de overzichtspagina"
+        exit 1
+      fi
+      echo "✅ Cloudflare authenticatie variabelen zijn ingesteld"
+      echo "CLOUDFLARE_ACCOUNT_ID lengte: ${#CLOUDFLARE_ACCOUNT_ID} tekens"
+  script:
+    - |
+      # Valideer en trim project naam
+      if [ -z "${CF_PAGES_PROJECT}" ] || [ "${CF_PAGES_PROJECT}" = '$CF_PAGES_PROJECT' ]; then
+        echo "❌ Error: CF_PAGES_PROJECT is niet ingesteld als CI/CD variabele"
+        echo "Zet deze in: Project Settings → CI/CD → Variables (bijv. 'sporthengelo')"
+        exit 1
+      fi
+      
+      # Trim whitespace
+      CF_PAGES_PROJECT=$(echo "${CF_PAGES_PROJECT}" | xargs)
+      echo "🔍 Controleren of Cloudflare Pages project bestaat: '${CF_PAGES_PROJECT}'"
+      echo "📏 Project naam lengte: ${#CF_PAGES_PROJECT} tekens"
+      
+      # Valideer project naam format (lowercase, letters, cijfers, en streepjes)
+      if ! echo "${CF_PAGES_PROJECT}" | grep -qE '^[a-z0-9-]+$'; then
+        echo "❌ Error: CF_PAGES_PROJECT bevat ongeldige tekens. Alleen lowercase letters, cijfers en streepjes zijn toegestaan."
+        exit 1
+      fi
+      
+      # Valideer dat naam niet begint of eindigt met streepje
+      if [[ "${CF_PAGES_PROJECT}" =~ ^- ]] || [[ "${CF_PAGES_PROJECT}" =~ -$ ]]; then
+        echo "❌ Error: CF_PAGES_PROJECT mag niet beginnen of eindigen met een streepje"
+        exit 1
+      fi
+      
+      # Probeer project aan te maken; negeer fout als het al bestaat
+      echo "📦 Controleren/aanmaken Cloudflare Pages project '${CF_PAGES_PROJECT}'"
+      set +e
+      CREATE_OUTPUT=$(wrangler pages project create "${CF_PAGES_PROJECT}" --production-branch main 2>&1)
+      CREATE_STATUS=$?
+      set -e
+      if [ $CREATE_STATUS -ne 0 ]; then
+        if echo "$CREATE_OUTPUT" | grep -qi "already exists"; then
+          echo "✅ Project '${CF_PAGES_PROJECT}' bestaat al"
+        else
+          echo "❌ Fout bij aanmaken project:"
+          echo "$CREATE_OUTPUT"
+          exit 1
+        fi
+      else
+        echo "✅ Project '${CF_PAGES_PROJECT}' aangemaakt"
+      fi
+    - |
+      # Deploy en extraheer deployment URL
+      DEPLOY_OUTPUT=$(wrangler pages deploy "${CF_PAGES_BUILD_DIR}" \
+        --project-name "${CF_PAGES_PROJECT}" \
+        --branch "${CI_COMMIT_REF_SLUG}" \
+        --commit-hash "${CI_COMMIT_SHA}" \
+        --commit-message "${CI_COMMIT_MESSAGE}" 2>&1)
+      
+      echo "$DEPLOY_OUTPUT"
+      
+      # Extraheer deployment URL uit output
+      DEPLOYMENT_URL=$(echo "$DEPLOY_OUTPUT" | grep -oP 'https://[a-f0-9]+\.'"${CF_PAGES_PROJECT}"'\.pages\.dev' | head -1)
+      
+      if [ -z "$DEPLOYMENT_URL" ]; then
+        echo "⚠️ Kon deployment URL niet extraheren, gebruik fallback alias URL"
+        DEPLOYMENT_URL="https://${CI_COMMIT_REF_SLUG}.${CF_PAGES_PROJECT}.pages.dev"
+      fi
+      
+      echo "🌐 Deployment URL: $DEPLOYMENT_URL"
+      echo "$DEPLOYMENT_URL" > deployment-url.txt
+  artifacts:
+    paths:
+      - deployment-url.txt
+    expire_in: 1 day
+  environment:
+    name: "review/$CI_COMMIT_REF_SLUG"
+    url: "https://${CI_COMMIT_REF_SLUG}.${CF_PAGES_PROJECT}.pages.dev"
+    on_stop: "stop_review"
+  rules:
+    - if: '$CI_MERGE_REQUEST_IID'
+
+smoke_test_review:
+  stage: review
+  image: curlimages/curl:latest
+  needs: 
+    - job: "review"
+      artifacts: true
+  script: |
+    # Lees deployment URL uit artifact
+    if [ -f deployment-url.txt ]; then
+      URL=$(cat deployment-url.txt)
+      echo "📄 Deployment URL gelezen uit artifact: $URL"
+    else
+      echo "⚠️ deployment-url.txt niet gevonden, gebruik fallback alias URL"
+      URL="https://${CI_COMMIT_REF_SLUG}.${CF_PAGES_PROJECT}.pages.dev"
+    fi
+    
+    echo "🔎 Running smoke test against $URL"
+    
+    # Wait for deployment to respond
+    for i in {1..20}; do
+      if curl -fs "$URL" > /dev/null 2>&1; then
+        echo "✅ Smoke test passed - site is accessible"
+        exit 0
+      fi
+      echo "⏳ Waiting for application... (attempt $i/20)"
+      sleep 5
+    done
+    
+    echo "❌ Smoke test failed — site not responding"
+    exit 1
+  rules:
+    - if: '$CI_MERGE_REQUEST_IID'
+  allow_failure: true
+
+stop_review:
+  stage: review
+  script:
+    - echo "Preview environments op Cloudflare Pages worden automatisch beheerd. Geen actie nodig."
+  when: manual
+  allow_failure: true
+  rules:
+    - if: '$CI_MERGE_REQUEST_IID'
+  environment:
+    name: "review/$CI_COMMIT_REF_SLUG"
+    action: stop
+
+deploy_production:
+  stage: deploy
+  needs: ["build"]
+  before_script:
+    - node -v && npm -v
+    - npm i -g wrangler
+    # Verifieer dat vereiste Cloudflare variabelen zijn ingesteld
+    - |
+      if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+        echo "❌ Error: CLOUDFLARE_API_TOKEN is niet ingesteld als CI/CD variabele"
+        echo "Zet deze in: Project Settings → CI/CD → Variables"
+        exit 1
+      fi
+      if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+        echo "❌ Error: CLOUDFLARE_ACCOUNT_ID is niet ingesteld als CI/CD variabele"
+        echo "Zet deze in: Project Settings → CI/CD → Variables"
+        echo "Je vindt je Account ID in het Cloudflare Dashboard rechtsonder op de overzichtspagina"
+        exit 1
+      fi
+      echo "✅ Cloudflare authenticatie variabelen zijn ingesteld"
+      echo "CLOUDFLARE_ACCOUNT_ID lengte: ${#CLOUDFLARE_ACCOUNT_ID} tekens"
+  script:
+    - |
+      # Valideer en trim project naam
+      if [ -z "${CF_PAGES_PROJECT}" ] || [ "${CF_PAGES_PROJECT}" = '$CF_PAGES_PROJECT' ]; then
+        echo "❌ Error: CF_PAGES_PROJECT is niet ingesteld als CI/CD variabele"
+        echo "Zet deze in: Project Settings → CI/CD → Variables (bijv. 'sporthengelo')"
+        exit 1
+      fi
+      
+      # Trim whitespace
+      CF_PAGES_PROJECT=$(echo "${CF_PAGES_PROJECT}" | xargs)
+      echo "🔍 Controleren of Cloudflare Pages project bestaat: '${CF_PAGES_PROJECT}'"
+      echo "📏 Project naam lengte: ${#CF_PAGES_PROJECT} tekens"
+      
+      # Valideer project naam format
+      if ! echo "${CF_PAGES_PROJECT}" | grep -qE '^[a-z0-9-]+$'; then
+        echo "❌ Error: CF_PAGES_PROJECT bevat ongeldige tekens. Alleen lowercase letters, cijfers en streepjes zijn toegestaan."
+        exit 1
+      fi
+      
+      # Valideer dat naam niet begint of eindigt met streepje
+      if [[ "${CF_PAGES_PROJECT}" =~ ^- ]] || [[ "${CF_PAGES_PROJECT}" =~ -$ ]]; then
+        echo "❌ Error: CF_PAGES_PROJECT mag niet beginnen of eindigen met een streepje"
+        exit 1
+      fi
+      
+      # Probeer project aan te maken; negeer fout als het al bestaat
+      echo "📦 Controleren/aanmaken Cloudflare Pages project '${CF_PAGES_PROJECT}'"
+      set +e
+      CREATE_OUTPUT=$(wrangler pages project create "${CF_PAGES_PROJECT}" --production-branch main 2>&1)
+      CREATE_STATUS=$?
+      set -e
+      if [ $CREATE_STATUS -ne 0 ]; then
+        if echo "$CREATE_OUTPUT" | grep -qi "already exists"; then
+          echo "✅ Project '${CF_PAGES_PROJECT}' bestaat al"
+        else
+          echo "❌ Fout bij aanmaken project:"
+          echo "$CREATE_OUTPUT"
+          exit 1
+        fi
+      else
+        echo "✅ Project '${CF_PAGES_PROJECT}' aangemaakt"
+      fi
+    - |
+      # Bereken de productie URL voor logging
+      PROD_URL="$PRODUCTION_ENV_URL"
+      if [ -z "$PROD_URL" ]; then
+        echo "❌ PRODUCTION_ENV_URL is niet gezet; controleer job rules"
+        exit 1
+      fi
+      echo "🌐 Production URL: $PROD_URL"
+      
+      # Deploy en log output
+      DEPLOY_OUTPUT=$(wrangler pages deploy "${CF_PAGES_BUILD_DIR}" \
+        --project-name "${CF_PAGES_PROJECT}" \
+        --branch "main" \
+        --commit-hash "${CI_COMMIT_SHA}" \
+        --commit-message "${CI_COMMIT_MESSAGE}" 2>&1)
+      
+      echo "$DEPLOY_OUTPUT"
+      
+      # Voor productie gebruiken we de PRODUCTION_ENV_URL
+      echo "$PROD_URL" > deployment-url.txt
+      
+      echo "✅ Deployed to: $PROD_URL"
+  artifacts:
+    paths:
+      - deployment-url.txt
+    expire_in: 1 day
+  environment:
+    name: production
+    url: "$PRODUCTION_ENV_URL"
+    action: start
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" && $CF_PAGES_PRODUCTION_DOMAIN'
+      variables:
+        PRODUCTION_ENV_URL: "https://${CF_PAGES_PRODUCTION_DOMAIN}"
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      variables:
+        PRODUCTION_ENV_URL: "https://${CF_PAGES_PROJECT}.pages.dev"
+
+smoke_test_production:
+  stage: deploy
+  image: curlimages/curl:latest
+  needs: 
+    - job: "deploy_production"
+      artifacts: true
+  script: |
+    # Lees deployment URL uit artifact
+    if [ -f deployment-url.txt ]; then
+      URL=$(cat deployment-url.txt)
+      echo "📄 Production URL gelezen uit artifact: $URL"
+    else
+      URL="$PRODUCTION_ENV_URL"
+      if [ -z "$URL" ]; then
+        echo "❌ PRODUCTION_ENV_URL is niet gezet; controleer job rules"
+        exit 1
+      fi
+      echo "⚠️ deployment-url.txt niet gevonden, gebruik PRODUCTION_ENV_URL: $URL"
+    fi
+    
+    echo "🔎 Running smoke test tegen productie: $URL"
+    
+    # Wait for deployment to respond
+    for i in {1..20}; do
+      if curl -fs "$URL" > /dev/null 2>&1; then
+        echo "✅ Smoke test passed - production site is accessible"
+        exit 0
+      fi
+      echo "⏳ Waiting for production deployment... (attempt $i/20)"
+      sleep 5
+    done
+    
+    echo "❌ Smoke test failed — production site not responding"
+    exit 1
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" && $CF_PAGES_PRODUCTION_DOMAIN'
+      variables:
+        PRODUCTION_ENV_URL: "https://${CF_PAGES_PRODUCTION_DOMAIN}"
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      variables:
+        PRODUCTION_ENV_URL: "https://${CF_PAGES_PROJECT}.pages.dev"
+  allow_failure: true

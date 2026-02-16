@@ -1,0 +1,200 @@
+---
+import MarkdownIt from 'markdown-it';
+
+interface Props {
+  content: string;
+  class?: string;
+}
+
+const { content, class: className } = Astro.props;
+
+const md = new MarkdownIt({
+  html: true,
+  linkify: true,
+  typographer: true,
+});
+
+const html = md.render(content);
+---
+
+<div class={`prose prose-lg max-w-none ${className || ''}`} set:html={html} />
+
+<style>
+  .prose {
+    color: #1f2937;
+  }
+  
+  .prose h1,
+  .prose h2,
+  .prose h4 {
+    color: #1f2937;
+    font-weight: 700;
+    margin-top: 2em;
+    margin-bottom: 1em;
+  }
+  
+  .prose h1 {
+    font-size: clamp(2.2rem, 4vw, 3.2rem);
+    word-break: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+  
+  .prose h2 {
+    font-size: clamp(1.8rem, 3vw, 2.4rem);
+    margin-top: 1.5em;
+    margin-bottom: 0.75em;
+    border-bottom: 2px solid #e5e7eb;
+    padding-bottom: 0.5em;
+    color: #1f2937;
+    font-weight: 700;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+  
+  .prose h3 {
+    font-size: clamp(1.3rem, 2.2vw, 1.6rem) !important;
+    margin-top: 1.75em !important;
+    margin-bottom: 0.75em !important;
+    font-weight: 600 !important;
+    color: #2a6f97 !important;
+    border-left: 4px solid #2a6f97 !important;
+    padding-left: 0.75em !important;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+  
+  .prose p {
+    line-height: 1.65;
+    margin-bottom: 1.25em;
+    max-width: 70ch;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+  
+  .prose a {
+    color: #2a6f97;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    transition: color 0.2s;
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+  
+  .prose a:hover {
+    color: #2c7a7b;
+  }
+  
+  .prose img {
+    border-radius: 0.5rem;
+    margin: 2em 0;
+    max-width: 100%;
+    height: auto;
+  }
+  
+  .prose ul,
+  .prose ol {
+    margin: 1.25em 0;
+    padding-left: 1.625em;
+  }
+  
+  .prose li {
+    margin: 0.5em 0;
+    line-height: 1.65;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+  
+  .prose ul {
+    list-style-type: disc;
+  }
+  
+  .prose ol {
+    list-style-type: decimal;
+  }
+  
+  .prose strong {
+    font-weight: 700;
+    color: #1f2937;
+  }
+  
+  .prose em {
+    font-style: italic;
+  }
+  
+  .prose blockquote {
+    border-left: 4px solid #2a6f97;
+    padding-left: 1em;
+    margin: 1.5em 0;
+    font-style: italic;
+    color: #4b5563;
+  }
+  
+  .prose code {
+    background-color: #f3f4f6;
+    padding: 0.125em 0.375em;
+    border-radius: 0.25rem;
+    font-size: 0.875em;
+    font-family: 'Courier New', monospace;
+  }
+  
+  .prose pre {
+    background-color: #1f2937;
+    color: #f9fafb;
+    padding: 1em;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    margin: 1.5em 0;
+  }
+  
+  .prose pre code {
+    background-color: transparent;
+    padding: 0;
+    color: inherit;
+  }
+  
+  .prose hr {
+    border: none;
+    border-top: 2px solid #e5e7eb;
+    margin: 2em 0;
+  }
+  
+  .prose table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5em 0;
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .prose th,
+  .prose td {
+    border: 1px solid #e5e7eb;
+    padding: 0.5em 1em;
+    text-align: left;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+
+  @media (max-width: 640px) {
+    .prose table {
+      font-size: 0.875rem;
+    }
+    
+    .prose th,
+    .prose td {
+      padding: 0.375em 0.75em;
+    }
+  }
+  
+  .prose th {
+    background-color: #f3f4f6;
+    font-weight: 600;
+  }
+</style>

@@ -1,0 +1,388 @@
+---
+export const prerender = true;
+
+import { Fragment } from 'astro/jsx-runtime';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Hero from '../components/Hero.astro';
+import CardGrid from '../components/CardGrid.astro';
+import Prose from '../components/Prose.astro';
+import { readdir, readFile } from 'fs/promises';
+import { join } from 'path';
+import matter from 'gray-matter';
+import siteConfig from '../../content/site.json';
+
+// Direct file reading instead of collections
+async function loadSports() {
+  const sportsDir = join(process.cwd(), 'content', 'sports');
+  const adaptiveDir = join(process.cwd(), 'content', 'adaptive');
+  
+  const sportsFiles = (await readdir(sportsDir)).filter(f => f.endsWith('.md'));
+  const adaptiveFiles = (await readdir(adaptiveDir)).filter(f => f.endsWith('.md'));
+  
+  const sports = await Promise.all(
+    sportsFiles.map(async (file) => {
+      const content = await readFile(join(sportsDir, file), 'utf-8');
+      const { data, content: body } = matter(content);
+      return {
+        id: file.replace('.md', ''),
+        slug: data.slug || file.replace('.md', ''),
+        data: {
+          title: data.title,
+          image: data.image,
+          summary: data.summary,
+          body: body,
+          external_url: data.external_url,
+          category: 'regulier',
+        },
+        category: 'regulier' as const,
+      };
+    })
+  );
+  
+  const adaptive = await Promise.all(
+    adaptiveFiles.map(async (file) => {
+      const content = await readFile(join(adaptiveDir, file), 'utf-8');
+      const { data, content: body } = matter(content);
+      return {
+        id: file.replace('.md', ''),
+        slug: data.slug || file.replace('.md', ''),
+        data: {
+          title: data.title,
+          image: data.image,
+          summary: data.summary,
+          body: body,
+          external_url: data.external_url,
+          category: 'aangepast',
+        },
+        category: 'aangepast' as const,
+      };
+    })
+  );
+  
+  return { sports, adaptive };
+}
+
+const { sports, adaptive } = await loadSports();
+
+const sortedRegular = sports.sort((a, b) => a.data.title.localeCompare(b.data.title, 'nl'));
+const sortedAdaptive = adaptive.sort((a, b) => a.data.title.localeCompare(b.data.title, 'nl'));
+
+// Populaire sporten (voorkeursvolgorde)
+const popularSportsOrder = [
+  'voetbal',
+  'tennis',
+  'zwemmen',
+  'atletiek',
+  'fitness',
+  'hardlopen',
+  'basketbal',
+  'volleybal',
+  'korfbal',
+  'turnen',
+  'dans-dance',
+  'honk-softbal'
+];
+
+// Selecteer 4 populaire sporten, of de eerste 4 als populaire niet gevonden worden
+function getPopularSports(sportsList: any[], count: number = 4) {
+  const popular: any[] = [];
+  
+  // Probeer eerst populaire sporten te vinden
+  for (const popularSlug of popularSportsOrder) {
+    const found = sportsList.find(s => s.slug === popularSlug || s.id === popularSlug);
+    if (found && popular.length < count) {
+      popular.push(found);
+    }
+  }
+  
+  // Vul aan met andere sporten als er nog niet genoeg zijn
+  if (popular.length < count) {
+    for (const sport of sportsList) {
+      if (!popular.find(p => p.slug === sport.slug)) {
+        popular.push(sport);
+        if (popular.length >= count) break;
+      }
+    }
+  }
+  
+  return popular.slice(0, count);
+}
+
+const regularSports = getPopularSports(sortedRegular, 8);
+const adaptiveSports = sortedAdaptive.slice(0, 8);
+const { home_intro } = siteConfig;
+
+const stats = {
+  total: sports.length + adaptive.length,
+  regular: sports.length,
+  adaptive: adaptive.length,
+};
+---
+
+<BaseLayout 
+  title="Sport Hengelo"
+  description="Ontdek alle sporten in Hengelo - regulier en aangepast. Vind de perfecte sport voor jou."
+>
+  <Fragment slot="head">
+    <link rel="preload" as="image" href="/images/hero-sports-tools.avif" fetchpriority="high" />
+  </Fragment>
+  <Hero 
+    title="Sport Hengelo"
+    subtitle="Zoek een sport die bij u past"
+    image="/images/hero-sports-tools.jpg"
+  />
+  
+  <!-- Welkomstsectie -->
+  <section class="py-16 bg-white">
+    <div class="container mx-auto px-4">
+      <div class="max-w-4xl mx-auto text-center px-4">
+        <h2 class="text-3xl sm:text-4xl md:text-5xl font-bold text-text mb-6 break-words">
+          Welkom bij Sport Hengelo
+        </h2>
+        <p class="text-lg sm:text-xl md:text-2xl text-text-light leading-relaxed mb-8 break-words">
+          Ontdek alle sporten die Hengelo te bieden heeft. Van voetbal tot yoga, van regulier tot aangepast - 
+          alles op één plek met directe links naar verenigingen en aanbieders.
+        </p>
+        <div class="flex flex-wrap justify-center gap-3 sm:gap-4 mt-8">
+          <div class="bg-primary/10 text-primary px-4 sm:px-6 py-2 sm:py-3 rounded-full text-sm sm:text-base font-semibold break-words">
+            {stats.total} sporten
+          </div>
+          <div class="bg-secondary/10 text-secondary px-4 sm:px-6 py-2 sm:py-3 rounded-full text-sm sm:text-base font-semibold break-words">
+            {stats.regular} regulier
+          </div>
+          <div class="bg-primary/10 text-primary px-4 sm:px-6 py-2 sm:py-3 rounded-full text-sm sm:text-base font-semibold break-words">
+            {stats.adaptive} aangepast
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Wat kunt u hier vinden sectie -->
+  <section class="py-16 bg-bg-light" style="overflow: visible;">
+    <div class="container mx-auto px-4" style="overflow: visible;">
+      <div class="max-w-5xl mx-auto" style="overflow: visible;">
+        <h2 class="text-3xl sm:text-4xl md:text-5xl font-bold text-text mb-12 text-center break-words px-4">
+          Wat kunt u hier vinden?
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6" style="overflow: visible; padding-bottom: 1rem;">
+          <div class="bg-white rounded-xl p-4 sm:p-6 shadow-lg hover:shadow-xl transition-shadow" style="overflow: visible;">
+            <div class="text-3xl sm:text-4xl mb-4">📋</div>
+            <h3 class="text-lg sm:text-xl font-bold text-text mb-2 break-words">Compleet overzicht</h3>
+            <p class="text-sm sm:text-base text-text-light break-words">Overzicht van alle sporten én aanbieders in Hengelo</p>
+          </div>
+          <div class="bg-white rounded-xl p-4 sm:p-6 shadow-lg hover:shadow-xl transition-shadow" style="overflow: visible;">
+            <div class="text-3xl sm:text-4xl mb-4">🏃</div>
+            <h3 class="text-lg sm:text-xl font-bold text-text mb-2 break-words">Regulier & aangepast</h3>
+            <p class="text-sm sm:text-base text-text-light break-words">Informatie over zowel reguliere als aangepaste sporten</p>
+          </div>
+          <div class="bg-white rounded-xl p-4 sm:p-6 shadow-lg hover:shadow-xl transition-shadow" style="overflow: visible;">
+            <div class="text-3xl sm:text-4xl mb-4">🏢</div>
+            <h3 class="text-lg sm:text-xl font-bold text-text mb-2 break-words">Verenigingen & aanbieders</h3>
+            <p class="text-sm sm:text-base text-text-light break-words">Per sport een lijst met clubs, stichtingen en andere aanbieders</p>
+          </div>
+          <div class="bg-white rounded-xl p-4 sm:p-6 shadow-lg hover:shadow-xl transition-shadow" style="overflow: visible;">
+            <div class="text-3xl sm:text-4xl mb-4">🔗</div>
+            <h3 class="text-lg sm:text-xl font-bold text-text mb-2 break-words">Directe links</h3>
+            <p class="text-sm sm:text-base text-text-light break-words">Directe links naar websites van sportverenigingen</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Hoe werkt het sectie -->
+  <section class="py-16 bg-white">
+    <div class="container mx-auto px-4">
+      <div class="max-w-5xl mx-auto">
+        <h2 class="text-3xl sm:text-4xl md:text-5xl font-bold text-text mb-12 text-center break-words px-4">
+          Hoe werkt het?
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div class="text-center">
+            <div class="bg-primary/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span class="text-3xl">🔍</span>
+            </div>
+            <h3 class="text-lg sm:text-xl font-bold text-text mb-2 break-words px-2">1. Kies een sport of categorie</h3>
+            <p class="text-sm sm:text-base text-text-light break-words px-2">Blader door sporten of gebruik de navigatie om direct naar een categorie te gaan</p>
+          </div>
+          <div class="text-center">
+            <div class="bg-secondary/10 w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span class="text-2xl sm:text-3xl">📖</span>
+            </div>
+            <h3 class="text-lg sm:text-xl font-bold text-text mb-2 break-words px-2">2. Lees wat de sport inhoudt</h3>
+            <p class="text-sm sm:text-base text-text-light break-words px-2">Klik op een sport om meer te lezen over de sport zelf</p>
+          </div>
+          <div class="text-center">
+            <div class="bg-primary/10 w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span class="text-2xl sm:text-3xl">🏢</span>
+            </div>
+            <h3 class="text-lg sm:text-xl font-bold text-text mb-2 break-words px-2">3. Bekijk waar u in Hengelo mee kunt doen</h3>
+            <p class="text-sm sm:text-base text-text-light break-words px-2">Bekijk welke verenigingen en aanbieders deze sport in Hengelo aanbieden</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Aangepaste sporten sectie -->
+  <section class="py-16 bg-gradient-to-br from-secondary/10 to-primary/10">
+    <div class="container mx-auto px-4">
+      <div class="max-w-4xl mx-auto text-center">
+        <div class="text-6xl mb-6">♿</div>
+        <h2 class="text-3xl sm:text-4xl md:text-5xl font-bold text-text mb-6 break-words px-4">
+          Aangepaste sporten
+        </h2>
+        <p class="text-lg sm:text-xl text-text-light leading-relaxed mb-8 break-words px-4">
+          In Hengelo zijn naast de reguliere sporten ook veel mogelijkheden op het gebied van 
+          aangepast sporten, voor mensen met een lichamelijk, verstandelijke of gedragsmatige beperking. 
+          Deze aangepaste sporten hebben een eigen categorie zodat u ze gemakkelijk kunt vinden.
+        </p>
+        <a 
+          href="/aangepaste-sporten"
+          class="inline-block bg-secondary text-white px-6 sm:px-8 py-3 sm:py-4 rounded-lg text-base sm:text-lg font-semibold hover:bg-secondary/90 transition-colors shadow-md hover:shadow-lg border-2 border-white break-words"
+        >
+          Bekijk alle aangepaste sporten →
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="py-16 bg-gradient-to-br from-primary/10 to-secondary/10">
+    <div class="container mx-auto px-4">
+      <div class="max-w-5xl mx-auto">
+        <h2 class="text-3xl sm:text-4xl md:text-5xl font-bold text-text mb-12 text-center break-words px-4">
+          Sporten in Hengelo in cijfers
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div class="bg-white rounded-xl p-8 shadow-lg text-center hover:shadow-xl transition-shadow">
+            <div class="text-5xl md:text-6xl font-bold text-primary mb-4">
+              {stats.total}
+            </div>
+            <div class="text-lg sm:text-xl text-text-light font-semibold break-words">
+              Totaal aantal sporten
+            </div>
+          </div>
+          <div class="bg-white rounded-xl p-6 sm:p-8 shadow-lg text-center hover:shadow-xl transition-shadow">
+            <div class="text-4xl sm:text-5xl md:text-6xl font-bold text-primary mb-4">
+              {stats.regular}
+            </div>
+            <div class="text-lg sm:text-xl text-text-light font-semibold break-words">
+              Reguliere sporten
+            </div>
+          </div>
+          <div class="bg-white rounded-xl p-6 sm:p-8 shadow-lg text-center hover:shadow-xl transition-shadow">
+            <div class="text-4xl sm:text-5xl md:text-6xl font-bold text-primary mb-4">
+              {stats.adaptive}
+            </div>
+            <div class="text-lg sm:text-xl text-text-light font-semibold break-words">
+              Aangepaste sporten
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="py-16 bg-white">
+    <div class="container mx-auto px-4">
+      <div class="max-w-5xl mx-auto text-center">
+        <h2 class="text-3xl sm:text-4xl md:text-5xl font-bold text-text mb-6 break-words px-4">
+          Ontdek de sporten in Hengelo
+        </h2>
+        <p class="text-lg sm:text-xl text-text-light mb-12 max-w-3xl mx-auto break-words px-4">
+          Kies een categorie om te beginnen met het ontdekken van alle sporten die Hengelo te bieden heeft. 
+          Elke sportpagina bevat informatie over de sport zelf en een overzicht van alle aanbieders en verenigingen.
+        </p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
+          <a 
+            href="/sporten"
+            class="bg-gradient-to-br from-primary to-primary/80 text-white px-6 sm:px-10 py-6 sm:py-8 rounded-xl text-center text-lg sm:text-xl font-bold hover:shadow-2xl transition-all transform hover:scale-105 shadow-lg break-words"
+          >
+            <div class="text-3xl sm:text-4xl mb-3">🏃</div>
+            <div class="break-words">Bekijk reguliere sporten</div>
+            <div class="text-xs sm:text-sm mt-2 opacity-90 break-words">{stats.regular} sporten</div>
+          </a>
+          <a 
+            href="/aangepaste-sporten"
+            class="bg-gradient-to-br from-secondary to-secondary/80 text-white px-6 sm:px-10 py-6 sm:py-8 rounded-xl text-center text-lg sm:text-xl font-bold hover:shadow-2xl transition-all transform hover:scale-105 shadow-lg break-words"
+          >
+            <div class="text-3xl sm:text-4xl mb-3">♿</div>
+            <div class="break-words">Aangepaste sporten</div>
+            <div class="text-xs sm:text-sm mt-2 opacity-90 break-words">{stats.adaptive} sporten</div>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="py-16 bg-white">
+    <div class="container mx-auto px-4">
+      <div class="mb-12 text-center">
+        <h2 class="text-3xl sm:text-4xl md:text-5xl font-bold text-text mb-4 break-words px-4">
+          Populaire reguliere sporten
+        </h2>
+        <p class="text-lg sm:text-xl text-text-light max-w-3xl mx-auto break-words px-4">
+          Een selectie van populaire reguliere sporten die in Hengelo worden aangeboden. 
+          Klik op een sport om meer te lezen en om te zien welke verenigingen deze sport aanbieden.
+        </p>
+      </div>
+      <CardGrid 
+        sports={regularSports}
+        title=""
+      />
+      <div class="text-center mt-12">
+        <a 
+          href="/sporten"
+          class="inline-block bg-primary text-white px-6 sm:px-8 py-3 sm:py-4 rounded-lg text-base sm:text-lg font-semibold hover:bg-primary/90 transition-colors shadow-md hover:shadow-lg break-words"
+        >
+          Bekijk alle {stats.regular} reguliere sporten →
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="py-16 bg-bg-light">
+    <div class="container mx-auto px-4">
+      <div class="mb-12 text-center">
+        <h2 class="text-3xl sm:text-4xl md:text-5xl font-bold text-text mb-4 break-words px-4">
+          Aangepaste sporten
+        </h2>
+        <p class="text-lg sm:text-xl text-text-light max-w-3xl mx-auto break-words px-4">
+          Hengelo biedt ook veel mogelijkheden voor aangepast sporten. 
+          Deze sporten zijn speciaal ontwikkeld of aangepast voor mensen met een beperking, 
+          zodat iedereen kan sporten en bewegen.
+        </p>
+      </div>
+      {adaptiveSports.length > 0 ? (
+        <>
+          <CardGrid 
+            sports={adaptiveSports}
+            title=""
+          />
+          <div class="text-center mt-12">
+            <a 
+              href="/aangepaste-sporten"
+              class="inline-block bg-secondary text-white px-6 sm:px-8 py-3 sm:py-4 rounded-lg text-base sm:text-lg font-semibold hover:bg-secondary/90 transition-colors shadow-md hover:shadow-lg border-2 border-white break-words"
+            >
+              Bekijk alle {stats.adaptive} aangepaste sporten →
+            </a>
+          </div>
+        </>
+      ) : (
+        <div class="text-center py-12">
+          <p class="text-xl text-text-light mb-8">
+            Er zijn aangepaste sporten beschikbaar in Hengelo.
+          </p>
+          <a 
+            href="/aangepaste-sporten"
+            class="inline-block bg-secondary text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-secondary/90 transition-colors shadow-md hover:shadow-lg border-2 border-white"
+          >
+            Bekijk alle aangepaste sporten →
+          </a>
+        </div>
+      )}
+    </div>
+  </section>
+
+</BaseLayout>

@@ -1,0 +1,27 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import MissingSportForm from '../components/MissingSportForm.astro';
+---
+
+<BaseLayout 
+  title="Sport/vereniging ontbreekt?"
+  description="Meld een ontbrekende sport of vereniging aan via ons formulier."
+>
+  <section class="py-12 bg-gradient-to-br from-accent/20 to-accent/10">
+    <div class="container mx-auto px-4">
+      <h1 class="text-4xl md:text-5xl font-bold text-text mb-4 text-center">
+        Sport/vereniging ontbreekt?
+      </h1>
+      <p class="text-xl text-text-light text-center max-w-2xl mx-auto mb-8">
+        Ken je een sport of vereniging die nog niet op deze site staat? Laat het ons weten via onderstaand formulier.
+      </p>
+    </div>
+  </section>
+
+  <section class="py-12">
+    <div class="container mx-auto px-4">
+      <MissingSportForm />
+    </div>
+  </section>
+</BaseLayout>
+

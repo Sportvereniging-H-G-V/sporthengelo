@@ -1,0 +1,43 @@
+---
+import { getPictureSources } from '../utils/images';
+
+interface Props {
+  title: string;
+  subtitle?: string;
+  image?: string;
+}
+
+const { title, subtitle, image } = Astro.props;
+
+const pictureSources = image ? getPictureSources(image) : null;
+---
+
+<section class="relative bg-gradient-to-br from-primary to-secondary text-white py-32 md:py-48 lg:py-64">
+  {image && pictureSources && (
+    <div class="absolute inset-0">
+      <picture>
+        <source type="image/avif" srcset={pictureSources.avif} />
+        <img 
+          src={pictureSources.fallback} 
+          alt="" 
+          class="w-full h-full object-cover"
+          loading="eager"
+          fetchpriority="high"
+          decoding="async"
+        />
+      </picture>
+      <div class="absolute inset-0 bg-black/20"></div>
+    </div>
+  )}
+  <div class="container mx-auto px-4 relative z-10">
+    <h1 class="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold mb-4 text-center break-words px-2">
+      {title}
+    </h1>
+    {subtitle && (
+      <p class="text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl text-center text-white/90 max-w-3xl mx-auto break-words px-2">
+        {subtitle}
+      </p>
+    )}
+  </div>
+</section>
+

@@ -1,0 +1,24 @@
+---
+interface Props {
+  title: string;
+  description?: string;
+  href: string;
+  cta: string;
+}
+
+const { title, description, href, cta } = Astro.props;
+---
+
+<div class="bg-accent/10 border-l-4 border-accent p-4 sm:p-6 rounded-lg my-8">
+  <h3 class="text-lg sm:text-xl font-bold text-text mb-2 break-words">{title}</h3>
+  {description && (
+    <p class="text-sm sm:text-base text-text-light mb-4 break-words">{description}</p>
+  )}
+  <a 
+    href={href}
+    class="inline-block bg-accent text-white px-4 sm:px-6 py-2 sm:py-3 rounded-md text-sm sm:text-base font-semibold hover:bg-accent/90 transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 break-words"
+  >
+    {cta}
+  </a>
+</div>
+

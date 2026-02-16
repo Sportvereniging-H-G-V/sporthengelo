@@ -1,0 +1,84 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Hero from '../components/Hero.astro';
+
+const faqs = [
+  {
+    question: "Hoeveel sporten staan er op deze website?",
+    answer: "Op deze website vindt u een overzicht van alle sporten die in Hengelo worden aangeboden. Het exacte aantal kan variëren, maar we proberen het overzicht zo compleet mogelijk te houden."
+  },
+  {
+    question: "Wat is het verschil tussen reguliere en aangepaste sporten?",
+    answer: "Reguliere sporten zijn sporten die voor iedereen toegankelijk zijn. Aangepaste sporten zijn speciaal ontwikkeld of aangepast voor mensen met een lichamelijk, verstandelijke of gedragsmatige beperking, zodat ook zij kunnen sporten en bewegen."
+  },
+  {
+    question: "Hoe kan ik contact opnemen met een sportvereniging?",
+    answer: "Op elke sportpagina vindt u informatie over de aanbieders en verenigingen. Vaak staat er een link naar de website van de vereniging, waar u contactgegevens kunt vinden. Sommige sporten hebben ook directe contactinformatie op de pagina staan."
+  },
+  {
+    question: "Ik zie een sport of vereniging niet op de website. Wat kan ik doen?",
+    answer: "Als u een sport of vereniging kent die nog niet op deze site staat, kunt u dit melden via het contactformulier op de pagina 'Ontbrekende sport'. We zullen dan kijken of we deze kunnen toevoegen."
+  },
+  {
+    question: "Is deze website gratis te gebruiken?",
+    answer: "Ja, deze website is volledig gratis te gebruiken. We willen het voor iedereen makkelijk maken om sporten in Hengelo te vinden."
+  },
+  {
+    question: "Hoe vaak wordt de informatie bijgewerkt?",
+    answer: "Deze website wordt vrijwillig onderhouden. We proberen de informatie zo actueel mogelijk te houden, maar we zijn niet altijd op de hoogte van nieuwe ontwikkelingen, wijzigingen bij verenigingen of nieuwe sporten. Daarom waarderen we het zeer als u ons laat weten wanneer u verouderde informatie tegenkomt, een nieuwe sport of vereniging kent, of andere wijzigingen opmerkt. U kunt dit melden via het contactformulier of via e-mail."
+  },
+  {
+    question: "Kan ik mijn vereniging toevoegen aan deze website?",
+    answer: "Ja, dat kan! Neem contact met ons op via het contactformulier of stuur een e-mail naar info@sporthengelo.nl. We zullen dan kijken of en hoe we uw vereniging kunnen toevoegen."
+  },
+  {
+    question: "Zijn er ook sporten voor kinderen?",
+    answer: "Ja, veel sportverenigingen in Hengelo bieden ook lessen en trainingen voor kinderen aan. Op de pagina van elke sport kunt u zien welke verenigingen deze sport aanbieden en of er speciale programma's voor kinderen zijn."
+  }
+];
+---
+
+<BaseLayout 
+  title="Veelgestelde vragen"
+  description="Antwoorden op veelgestelde vragen over Sport Hengelo."
+>
+  <Hero 
+    title="Veelgestelde vragen"
+    subtitle="Alles wat u wilt weten over Sport Hengelo"
+  />
+  
+  <section class="py-16 bg-white">
+    <div class="container mx-auto px-4">
+      <div class="max-w-4xl mx-auto">
+        <div class="space-y-6">
+          {faqs.map((faq) => (
+            <div class="bg-bg-light rounded-lg p-6 shadow-sm">
+              <h3 class="text-xl font-bold text-text mb-3">
+                {faq.question}
+              </h3>
+              <p class="text-text-light leading-relaxed">
+                {faq.answer}
+              </p>
+            </div>
+          ))}
+        </div>
+        
+        <div class="mt-12 bg-primary/10 border-l-4 border-primary p-6 rounded">
+          <h3 class="text-xl font-bold text-text mb-3">
+            Heeft u nog andere vragen?
+          </h3>
+          <p class="text-text-light mb-4">
+            Kunt u het antwoord op uw vraag niet vinden? Neem dan gerust contact met ons op.
+          </p>
+          <a 
+            href="/ontbrekende-sport" 
+            class="inline-block bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary/90 transition-colors"
+          >
+            Neem contact op
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+

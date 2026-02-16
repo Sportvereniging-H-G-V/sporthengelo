@@ -1,0 +1,17 @@
+name = "sporthengelo"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "dist"
+
+# Environment variables for Cloudflare Pages/Workers
+# Note: Secrets (like GITLAB_ACCESS_TOKEN) must be set via Cloudflare Dashboard
+# under Pages > Settings > Environment Variables > Secrets
+# Regular variables can be set here in wrangler.toml
+
+[env.production]
+vars = { 
+  PUBLIC_SITE_URL = "https://sporthengelo.nl",
+  GITLAB_API_URL = "https://gitlab.rubenrikk.nl/api/v4",
+  GITLAB_PROJECT_ID = "31"
+}
+# GITLAB_ACCESS_TOKEN should be set as a Secret in Cloudflare Dashboard
+

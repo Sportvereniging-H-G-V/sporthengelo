@@ -1,0 +1,56 @@
+---
+import { getPictureSources } from '../utils/images';
+
+interface Props {
+  sport: any; // Astro content collection entry
+}
+
+const { sport } = Astro.props;
+const slug = sport.slug || sport.data?.slug || 'unknown';
+const href = `/sport/${slug}`;
+const data = sport.data || sport;
+const pictureSources = data.image ? getPictureSources(data.image) : null;
+---
+
+<article class="bg-white rounded-lg shadow-md hover:shadow-xl transition-all duration-300 hover:scale-[1.02] group">
+  <a href={href} class="block overflow-hidden rounded-t-lg">
+    <div class="aspect-square overflow-hidden bg-gray-200">
+      {pictureSources ? (
+        <picture>
+          <source type="image/avif" srcset={pictureSources.avif} />
+          <img 
+            src={pictureSources.fallback} 
+            alt={`Foto van ${data.title}`}
+            class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+            loading="lazy"
+            decoding="async"
+          />
+        </picture>
+      ) : (
+        <img 
+          src={data.image} 
+          alt={`Foto van ${data.title}`}
+          class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+          loading="lazy"
+          decoding="async"
+        />
+      )}
+    </div>
+    <div class="p-4 sm:p-6">
+      <h3 class="text-lg sm:text-xl font-bold text-text mb-2 group-hover:text-primary transition-colors break-words line-clamp-2">
+        {data.title}
+      </h3>
+    </div>
+  </a>
+</article>
+
+<style>
+  article {
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1) !important;
+  }
+  
+  article:hover {
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1) !important;
+  }
+</style>
+

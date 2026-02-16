@@ -1,0 +1,32 @@
+---
+import Card from './Card.astro';
+
+interface Props {
+  sports: any[]; // Astro content collection entries
+  title?: string;
+}
+
+const { sports, title } = Astro.props;
+---
+
+<section class="py-12 pb-16" style="overflow: visible;">
+  {title && (
+    <div class="container mx-auto px-4 mb-8">
+      <h2 class="text-3xl md:text-4xl font-bold text-text">{title}</h2>
+    </div>
+  )}
+  <div class="container mx-auto px-4" style="overflow: visible;">
+    {sports.length > 0 ? (
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" style="overflow: visible;">
+        {sports.map((sport) => (
+          <Card sport={sport} />
+        ))}
+      </div>
+    ) : (
+      <p class="text-center text-text-light py-12">
+        Er zijn nog geen sporten in deze categorie.
+      </p>
+    )}
+  </div>
+</section>
+

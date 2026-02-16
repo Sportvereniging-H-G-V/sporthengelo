@@ -1,0 +1,270 @@
+---
+export const prerender = true;
+
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Hero from '../components/Hero.astro';
+import Prose from '../components/Prose.astro';
+import { readdir } from 'fs/promises';
+import { join } from 'path';
+
+// Count sports for statistics
+async function getSportsCount() {
+  const sportsDir = join(process.cwd(), 'content', 'sports');
+  const adaptiveDir = join(process.cwd(), 'content', 'adaptive');
+  
+  const sportsFiles = (await readdir(sportsDir)).filter(f => f.endsWith('.md'));
+  const adaptiveFiles = (await readdir(adaptiveDir)).filter(f => f.endsWith('.md'));
+  
+  return {
+    regular: sportsFiles.length,
+    adaptive: adaptiveFiles.length,
+    total: sportsFiles.length + adaptiveFiles.length,
+  };
+}
+
+const counts = await getSportsCount();
+---
+
+<BaseLayout 
+  title="Over Sport Hengelo"
+  description="Meer informatie over Sport Hengelo en het doel van deze website."
+>
+  <Hero 
+    title="Over Sport Hengelo"
+    subtitle="Alle sporten in Hengelo op één plek"
+  />
+  
+  <!-- Statistieken sectie -->
+  <section class="py-12 md:py-16 bg-gradient-to-br from-primary/5 to-secondary/5">
+    <div class="container mx-auto px-4">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 max-w-5xl mx-auto">
+        <div class="bg-white rounded-xl p-6 md:p-8 shadow-lg border border-primary/10 text-center transform hover:scale-105 transition-transform duration-200">
+          <div class="text-4xl md:text-5xl font-bold text-primary mb-2">{counts.total}</div>
+          <div class="text-lg text-text-light font-medium">Totaal sporten</div>
+        </div>
+        <div class="bg-white rounded-xl p-6 md:p-8 shadow-lg border border-primary/10 text-center transform hover:scale-105 transition-transform duration-200">
+          <div class="text-4xl md:text-5xl font-bold text-primary mb-2">{counts.regular}</div>
+          <div class="text-lg text-text-light font-medium">Reguliere sporten</div>
+        </div>
+        <div class="bg-white rounded-xl p-6 md:p-8 shadow-lg border border-primary/10 text-center transform hover:scale-105 transition-transform duration-200">
+          <div class="text-4xl md:text-5xl font-bold text-primary mb-2">{counts.adaptive}</div>
+          <div class="text-lg text-text-light font-medium">Aangepaste sporten</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Introductie sectie -->
+  <section class="py-16 md:py-20 bg-white">
+    <div class="container mx-auto px-4">
+      <div class="max-w-4xl mx-auto">
+        <div class="text-center mb-12">
+          <h2 class="text-3xl md:text-4xl lg:text-5xl font-bold text-text mb-4">
+            Over deze website
+          </h2>
+          <p class="text-xl md:text-2xl text-text-light max-w-3xl mx-auto leading-relaxed">
+            Sport Hengelo is een initiatief om alle sporten in Hengelo overzichtelijk bij elkaar te brengen. 
+            Ons doel is om inwoners van Hengelo en omgeving te helpen bij het vinden van de sport die bij hen past.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Ons doel sectie -->
+  <section class="py-16 md:py-20 bg-gradient-to-br from-primary/5 to-secondary/5">
+    <div class="container mx-auto px-4">
+      <div class="max-w-4xl mx-auto">
+        <h2 class="text-3xl md:text-4xl font-bold text-text mb-8 text-center">
+          Ons doel
+        </h2>
+        <p class="text-lg text-text-light mb-8 text-center max-w-2xl mx-auto">
+          We willen het voor iedereen makkelijker maken om:
+        </p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-white rounded-xl p-6 shadow-md border border-gray-100 hover:shadow-lg transition-shadow">
+            <div class="flex items-start gap-4">
+              <div class="flex-shrink-0 w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                <span class="text-2xl">🔍</span>
+              </div>
+              <div>
+                <h3 class="font-semibold text-text mb-2">Sporten ontdekken</h3>
+                <p class="text-text-light">Ontdek welke sporten er allemaal in Hengelo worden aangeboden</p>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl p-6 shadow-md border border-gray-100 hover:shadow-lg transition-shadow">
+            <div class="flex items-start gap-4">
+              <div class="flex-shrink-0 w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                <span class="text-2xl">🏢</span>
+              </div>
+              <div>
+                <h3 class="font-semibold text-text mb-2">Verenigingen vinden</h3>
+                <p class="text-text-light">Vind welke verenigingen en aanbieders er zijn voor een specifieke sport</p>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl p-6 shadow-md border border-gray-100 hover:shadow-lg transition-shadow">
+            <div class="flex items-start gap-4">
+              <div class="flex-shrink-0 w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                <span class="text-2xl">📞</span>
+              </div>
+              <div>
+                <h3 class="font-semibold text-text mb-2">Contact opnemen</h3>
+                <p class="text-text-light">Neem direct contact op met sportverenigingen</p>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl p-6 shadow-md border border-gray-100 hover:shadow-lg transition-shadow">
+            <div class="flex items-start gap-4">
+              <div class="flex-shrink-0 w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                <span class="text-2xl">♿</span>
+              </div>
+              <div>
+                <h3 class="font-semibold text-text mb-2">Aangepaste sporten</h3>
+                <p class="text-text-light">Krijg informatie over zowel reguliere als aangepaste sporten</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Missie & Visie sectie -->
+  <section class="py-16 md:py-20 bg-white">
+    <div class="container mx-auto px-4">
+      <div class="max-w-4xl mx-auto">
+        <h2 class="text-3xl md:text-4xl font-bold text-text mb-8 text-center">
+          Onze missie
+        </h2>
+        <div class="bg-gradient-to-br from-primary/5 to-secondary/5 rounded-2xl p-8 md:p-10 mb-8">
+          <p class="text-lg md:text-xl text-text-light leading-relaxed text-center max-w-3xl mx-auto">
+            We geloven dat iedereen in Hengelo de mogelijkheid moet hebben om de sport te vinden die bij hen past. 
+            Of je nu op zoek bent naar een reguliere sport of een aangepaste sport, wij helpen je op weg.
+          </p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-white rounded-xl p-6 shadow-md border border-gray-100">
+            <h3 class="font-semibold text-lg text-text mb-3 flex items-center gap-2">
+              <span class="text-2xl">🎯</span>
+              Transparantie
+            </h3>
+            <p class="text-text-light">
+              Alle informatie over sporten en verenigingen op één plek, zonder verborgen kosten of verrassingen.
+            </p>
+          </div>
+          <div class="bg-white rounded-xl p-6 shadow-md border border-gray-100">
+            <h3 class="font-semibold text-lg text-text mb-3 flex items-center gap-2">
+              <span class="text-2xl">♿</span>
+              Inclusiviteit
+            </h3>
+            <p class="text-text-light">
+              We maken zowel reguliere als aangepaste sporten even toegankelijk en zichtbaar.
+            </p>
+          </div>
+          <div class="bg-white rounded-xl p-6 shadow-md border border-gray-100">
+            <h3 class="font-semibold text-lg text-text mb-3 flex items-center gap-2">
+              <span class="text-2xl">🔄</span>
+              Actueel
+            </h3>
+            <p class="text-text-light">
+              We werken continu aan het bijhouden en uitbreiden van ons overzicht met nieuwe sporten en verenigingen.
+            </p>
+          </div>
+          <div class="bg-white rounded-xl p-6 shadow-md border border-gray-100">
+            <h3 class="font-semibold text-lg text-text mb-3 flex items-center gap-2">
+              <span class="text-2xl">🤝</span>
+              Samenwerking
+            </h3>
+            <p class="text-text-light">
+              We werken samen met verenigingen en aanbieders om het sportaanbod in Hengelo compleet in kaart te brengen.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Voor wie sectie -->
+  <section class="py-16 md:py-20 bg-gradient-to-br from-secondary/5 to-primary/5">
+    <div class="container mx-auto px-4">
+      <div class="max-w-4xl mx-auto">
+        <h2 class="text-3xl md:text-4xl font-bold text-text mb-8 text-center">
+          Voor wie is deze site?
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-white rounded-xl p-6 shadow-md border-l-4 border-primary">
+            <h3 class="font-semibold text-lg text-text mb-2">🏠 Inwoners van Hengelo</h3>
+            <p class="text-text-light">Die op zoek zijn naar een nieuwe sport</p>
+          </div>
+          <div class="bg-white rounded-xl p-6 shadow-md border-l-4 border-primary">
+            <h3 class="font-semibold text-lg text-text mb-2">👨‍👩‍👧‍👦 Ouders</h3>
+            <p class="text-text-light">Die een sport zoeken voor hun kinderen</p>
+          </div>
+          <div class="bg-white rounded-xl p-6 shadow-md border-l-4 border-primary">
+            <h3 class="font-semibold text-lg text-text mb-2">♿ Mensen met een beperking</h3>
+            <p class="text-text-light">Die aangepaste sporten zoeken</p>
+          </div>
+          <div class="bg-white rounded-xl p-6 shadow-md border-l-4 border-primary">
+            <h3 class="font-semibold text-lg text-text mb-2">🏆 Sportliefhebbers</h3>
+            <p class="text-text-light">Die geïnteresseerd zijn in het sportaanbod in Hengelo</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Call to action sectie -->
+  <section class="py-16 md:py-20 bg-white">
+    <div class="container mx-auto px-4">
+      <div class="max-w-4xl mx-auto">
+        <div class="bg-gradient-to-br from-primary to-secondary rounded-2xl p-8 md:p-12 text-white text-center shadow-xl">
+          <h2 class="text-3xl md:text-4xl font-bold mb-4">
+            Sport of vereniging ontbreekt?
+          </h2>
+          <p class="text-lg md:text-xl mb-8 text-white/90 max-w-2xl mx-auto">
+            We proberen het overzicht zo compleet mogelijk te houden, maar het kan zijn dat we een sport 
+            of vereniging hebben gemist. Laat het ons weten!
+          </p>
+          <a 
+            href="/ontbrekende-sport" 
+            class="inline-block bg-white text-primary px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-colors shadow-lg hover:shadow-xl"
+          >
+            Meld ontbrekende sport aan →
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Contact sectie -->
+  <section class="py-16 md:py-20 pb-20 md:pb-24 bg-gradient-to-br from-primary/5 to-secondary/5" style="overflow: visible;">
+    <div class="container mx-auto px-4" style="overflow: visible;">
+      <div class="max-w-2xl mx-auto" style="overflow: visible; margin-bottom: 20px;">
+        <div class="bg-white rounded-2xl p-8 md:p-10 border border-gray-200 shadow-2xl" style="box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);">
+          <div class="text-center mb-6">
+            <div class="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span class="text-3xl">📧</span>
+            </div>
+            <h2 class="text-2xl md:text-3xl font-bold text-text mb-3">
+              Contact
+            </h2>
+            <p class="text-text-light mb-6">
+              Heeft u vragen of opmerkingen over deze website?
+            </p>
+          </div>
+          <div class="text-center">
+            <a 
+              href="mailto:info@sporthengelo.nl" 
+              class="inline-block bg-primary text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-primary/90 transition-colors shadow-md hover:shadow-lg"
+            >
+              📧 info@sporthengelo.nl
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+

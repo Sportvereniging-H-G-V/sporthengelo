@@ -1,0 +1,55 @@
+---
+interface Props {
+  title: string;
+  description?: string;
+  image?: string;
+  noindex?: boolean;
+  type?: 'website' | 'article';
+}
+
+const { title, description, image, noindex, type = 'website' } = Astro.props;
+const siteUrl = Astro.site || 'https://sporthengelo.nl';
+const fullTitle = title.includes('Sport Hengelo') ? title : `${title} | Sport Hengelo`;
+const metaDescription = description || 'Ontdek alle sporten in Hengelo - regulier en aangepast. Vind de perfecte sport voor jou.';
+const ogImage = image || `${siteUrl}/og-image.jpg`;
+const canonicalUrl = new URL(Astro.url.pathname, siteUrl).href;
+---
+
+<title>{fullTitle}</title>
+<meta name="description" content={metaDescription} />
+<link rel="canonical" href={canonicalUrl} />
+{noindex && <meta name="robots" content="noindex, nofollow" />}
+
+<!-- Open Graph -->
+<meta property="og:title" content={fullTitle} />
+<meta property="og:description" content={metaDescription} />
+<meta property="og:image" content={ogImage} />
+<meta property="og:type" content={type} />
+<meta property="og:url" content={canonicalUrl} />
+<meta property="og:locale" content="nl_NL" />
+<meta property="og:site_name" content="Sport Hengelo" />
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={fullTitle} />
+<meta name="twitter:description" content={metaDescription} />
+<meta name="twitter:image" content={ogImage} />
+
+<!-- Structured Data -->
+<script type="application/ld+json" set:html={JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Sport Hengelo",
+  "url": siteUrl,
+  "description": "Alle sporten in Hengelo op één plek. Ontdek reguliere en aangepaste sporten.",
+  "inLanguage": "nl-NL",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": {
+      "@type": "EntryPoint",
+      "urlTemplate": `${siteUrl}/sporten?q={search_term_string}`
+    },
+    "query-input": "required name=search_term_string"
+  }
+})} />
+
