@@ -1,6 +1,6 @@
 # Voegt nieuwe en bestaande issues toe aan het HGV project board.
-# Project: https://github.com/orgs/Sportvereniging-H-G-V/projects/3
-# Voor org-projects: voeg secret PROJECT_TOKEN toe (PAT met scope "project") indien nodig.
+# Project: https://github.com/orgs/Sportvereniging-H-G-V/teams/development/projects (team: development, project 3).
+# Voor org/team-projects: voeg secret PROJECT_TOKEN toe (PAT met scope "project") indien nodig.
 
 name: Add issues to project board
 
@@ -24,12 +24,17 @@ jobs:
         with:
           github-token: ${{ secrets.PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
-            const r = await github.graphql(
-              `query { organization(login: "Sportvereniging-H-G-V") { projectV2(number: 3) { id } } }`
+            const teamSlug = process.env.PROJECT_TEAM_SLUG;
+            const org = 'Sportvereniging-H-G-V';
+            const projectNum = 3;
+            const r = await github.graphql(teamSlug
+              ? `query($org: String!, $slug: String!, $num: Int!) { organization(login: $org) { team(slug: $slug) { projectV2(number: $num) { id } } } }`
+              : `query($org: String!, $num: Int!) { organization(login: $org) { projectV2(number: $num) { id } } }`,
+              teamSlug ? { org, slug: teamSlug, num: projectNum } : { org, num: projectNum }
             );
-            const projectId = r?.organization?.projectV2?.id;
+            const projectId = teamSlug ? r?.organization?.team?.projectV2?.id : r?.organization?.projectV2?.id;
             if (!projectId) {
-              console.log('::warning::Kon project niet vinden (org: Sportvereniging-H-G-V, number: 3).');
+              console.log('::warning::Kon project niet vinden. Staat het onder een team? Zet variable PROJECT_TEAM_SLUG (team slug uit URL).');
               return;
             }
             const contentId = context.payload.issue.node_id;
@@ -42,6 +47,8 @@ jobs:
               { projectId, contentId }
             );
             console.log('Issue toegevoegd aan project:', result?.addProjectV2ItemById?.item?.id || 'ok');
+        env:
+          PROJECT_TEAM_SLUG: ${{ vars.PROJECT_TEAM_SLUG }}
 
       - name: Add all open issues (manual run)
         if: github.event_name == 'workflow_dispatch'
@@ -49,12 +56,17 @@ jobs:
         with:
           github-token: ${{ secrets.PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
-            const r = await github.graphql(
-              `query { organization(login: "Sportvereniging-H-G-V") { projectV2(number: 3) { id } } }`
+            const teamSlug = process.env.PROJECT_TEAM_SLUG;
+            const org = 'Sportvereniging-H-G-V';
+            const projectNum = 3;
+            const r = await github.graphql(teamSlug
+              ? `query($org: String!, $slug: String!, $num: Int!) { organization(login: $org) { team(slug: $slug) { projectV2(number: $num) { id } } } }`
+              : `query($org: String!, $num: Int!) { organization(login: $org) { projectV2(number: $num) { id } } }`,
+              teamSlug ? { org, slug: teamSlug, num: projectNum } : { org, num: projectNum }
             );
-            const projectId = r?.organization?.projectV2?.id;
+            const projectId = teamSlug ? r?.organization?.team?.projectV2?.id : r?.organization?.projectV2?.id;
             if (!projectId) {
-              throw new Error('Kon project niet vinden (org: Sportvereniging-H-G-V, number: 3).');
+              throw new Error('Kon project niet vinden. Staat het onder een team? Zet organization/repo variable PROJECT_TEAM_SLUG (team slug uit URL, bijv. teams/xyz/projects/3).');
             }
             const { data } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
@@ -82,3 +94,5 @@ jobs:
                   console.warn(`Fout bij #${issue.number}:`, err.message);
               }
             }
+        env:
+          PROJECT_TEAM_SLUG: ${{ vars.PROJECT_TEAM_SLUG }}
