@@ -1,0 +1,97 @@
+# Voegt nieuwe en bestaande issues toe aan het HGV project board.
+# Project: https://github.com/orgs/Sportvereniging-H-G-V/teams/development/projects (team: development, project 3).
+# Voor org/team-projects: voeg secret PROJECT_TOKEN toe (PAT met scope "project") indien nodig.
+
+name: Add issues to project board
+
+on:
+  issues:
+    types: [opened, reopened]
+  workflow_dispatch:
+
+permissions:
+  issues: read
+  contents: read
+
+jobs:
+  add-to-project:
+    name: Add issue(s) to project
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add single issue (triggered by issue event)
+        if: github.event_name == 'issues'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
+          script: |
+            const r = await github.graphql(
+              `query($org: String!, $slug: String!) { organization(login: $org) { team(slug: $slug) { projectsV2(first: 20) { nodes { id number title } } } } }`,
+              { org: 'Sportvereniging-H-G-V', slug: 'development' }
+            );
+            const nodes = r?.organization?.team?.projectsV2?.nodes || [];
+            const project = nodes.find(p => p.number === 3) || nodes[0];
+            const projectId = project?.id;
+            if (!projectId) {
+              if (nodes.length === 0) {
+                console.log('::warning::Geen projecten gevonden voor team development. Zet secret PROJECT_TOKEN (PAT met scope project) en geef de token toegang tot het team-project.');
+              } else {
+                console.log('::warning::Geen project met number 3. Gevonden:', nodes.map(p => `#${p.number} ${p.title}`).join(', '));
+              }
+              return;
+            }
+            const contentId = context.payload.issue.node_id;
+            const result = await github.graphql(
+              `mutation($projectId: ID!, $contentId: ID!) {
+                addProjectV2ItemById(input: { projectId: $projectId, contentId: $contentId }) {
+                  item { id }
+                }
+              }`,
+              { projectId, contentId }
+            );
+            console.log('Issue toegevoegd aan project:', result?.addProjectV2ItemById?.item?.id || 'ok');
+
+      - name: Add all open issues (manual run)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
+          script: |
+            const r = await github.graphql(
+              `query($org: String!, $slug: String!) { organization(login: $org) { team(slug: $slug) { projectsV2(first: 20) { nodes { id number title } } } } }`,
+              { org: 'Sportvereniging-H-G-V', slug: 'development' }
+            );
+            const nodes = r?.organization?.team?.projectsV2?.nodes || [];
+            const project = nodes.find(p => p.number === 3) || nodes[0];
+            const projectId = project?.id;
+            if (!projectId) {
+              if (nodes.length === 0) {
+                throw new Error('Geen projecten gevonden voor team development. Zet secret PROJECT_TOKEN (PAT met scope project) en geef de token toegang tot het team-project.');
+              }
+              throw new Error('Geen project met number 3. Gevonden: ' + nodes.map(p => `#${p.number} ${p.title}`).join(', '));
+            }
+            const { data } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+            const issues = data.filter(i => !i.pull_request);
+            console.log(`Gevonden: ${issues.length} open issue(s).`);
+            for (const issue of issues) {
+              try {
+                await github.graphql(
+                  `mutation($projectId: ID!, $contentId: ID!) {
+                    addProjectV2ItemById(input: { projectId: $projectId, contentId: $contentId }) {
+                      item { id }
+                    }
+                  }`,
+                  { projectId, contentId: issue.node_id }
+                );
+                console.log(`Toegevoegd: #${issue.number} ${issue.title}`);
+              } catch (err) {
+                if (err.message?.includes('already exists') || err.errors?.[0]?.message?.includes('already'))
+                  console.log(`Al in project: #${issue.number}`);
+                else
+                  console.warn(`Fout bij #${issue.number}:`, err.message);
+              }
+            }
